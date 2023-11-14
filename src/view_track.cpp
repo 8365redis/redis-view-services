@@ -193,7 +193,7 @@ int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     info.arguments.insert(info.arguments.begin(), arguments_arg.begin(), arguments_arg.end());
 
     CLIENT_SIZE_INFO.push_back(info);
-    printf("CLIENT_SIZE_INFO size : %lu\n",CLIENT_SIZE_INFO.size());
+    //printf("CLIENT_SIZE_INFO size : %lu\n",CLIENT_SIZE_INFO.size());
     
     RedisModule_ReplyWithSimpleString(ctx, "OK");
     return REDISMODULE_OK;
@@ -281,7 +281,7 @@ void Main_Search_Handler(RedisModuleCtx *ctx, std::vector<Client_Size_Info> &cli
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000)); // Check every second
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
 }
 
@@ -364,6 +364,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
 
             //Compare previous values
             std::unordered_map<std::string, nlohmann::json> diff_values;
+            /*
             std::set<std::string> view_old_keys;
             for(auto &kv : query_2_value) {
                 view_old_keys.insert(kv.first);
@@ -394,6 +395,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
                     diff_values[old_key_from_view] = json::object();
                 }
             }
+            */
 
 
             // Write new values 
@@ -422,7 +424,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
             }            
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000)); // Check every second
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
 }
 
