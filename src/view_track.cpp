@@ -364,7 +364,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
 
             //Compare previous values
             std::unordered_map<std::string, nlohmann::json> diff_values;
-            /*
+            
             std::set<std::string> view_old_keys;
             for(auto &kv : query_2_value) {
                 view_old_keys.insert(kv.first);
@@ -395,7 +395,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
                     diff_values[old_key_from_view] = json::object();
                 }
             }
-            */
+            
 
 
             // Write new values 
