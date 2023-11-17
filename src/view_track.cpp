@@ -169,24 +169,6 @@ int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         arguments_arg.push_back(RedisModule_StringPtrLen(arg, NULL));
     }
     
-    /*
-    long long size = 0;
-    // Forward Search
-    RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
-    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
-    } else {
-        RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
-        if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
-            size = RedisModule_CallReplyInteger(key_int_reply);
-            printf("main search size : %lld \n",size);
-        }else {
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Main_Search_RedisCommand failed to get reply size." );
-            return RedisModule_ReplyWithError(ctx, strerror(errno));
-            return REDISMODULE_ERR;
-        }
-    }
-    */
 
     Client_Size_Info info;
     info.stream_name = Get_Client_Name(ctx);
@@ -235,9 +217,9 @@ void Start_Main_Search_Handler(RedisModuleCtx *ctx) {
 void Main_Search_Handler(RedisModuleCtx *ctx, std::vector<Client_Size_Info> &client_size_info_arg) {
 
     while(true) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler called." );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler called." );
         for(Client_Size_Info &info : client_size_info_arg){
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler handling : " + info.stream_name );
+            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler handling : " + info.stream_name );
             long long size = 0;
             std::string index_and_query = "";
             int arg_index = 0;
@@ -296,9 +278,9 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
                              std::unordered_map<std::string, std::vector<std::string>> &client_2_query) {
 
     while(true) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         for (auto &client_2_query_item : client_2_query) {
-
+            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
             std::string arguments_arg_str = "";
             for(auto const& e : client_2_query_item.second) arguments_arg_str += (e + CCT_MODULE_QUERY_DELIMETER);
             if(arguments_arg_str.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
@@ -308,6 +290,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
             std::vector<RedisModuleString*> arguments;
             for(std::string arg : client_2_query_item.second){
                 arguments.push_back(RedisModule_CreateString(ctx, arg.c_str(), arg.length()));
+                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Arguments : " + arg );
             }
             
             // Forward Search
@@ -368,10 +351,12 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
             std::set<std::string> view_old_keys;
             for(auto &kv : query_2_value) {
                 view_old_keys.insert(kv.first);
+                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key : " + kv.first );
             }
             std::set<std::string> view_new_keys;
             for(auto &kv : new_values) {
                 view_new_keys.insert(kv.first);
+                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: New key : " + kv.first );
             }
 
             // Iterate new keys from old keys
@@ -404,25 +389,27 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
             // Write to stream
             
             int stream_write_size = diff_values.size();
-            int stream_write_size_total = (stream_write_size * 2) + 2;
-            RedisModuleString* client_name = RedisModule_CreateString(ctx, client_2_query_item.first.c_str(), client_2_query_item.first.length());
-            RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
-            RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
-            xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
-            xadd_params[1] = RedisModule_CreateString(ctx, arguments_arg_str.c_str(), arguments_arg_str.length());
-            int i = 2;
-            for(auto&value : diff_values){
-                if(i > stream_write_size_total){
-                    assert("Stream writing pass limit ???");
+            if( stream_write_size != 0 ) { 
+                int stream_write_size_total = (stream_write_size * 2) + 2;
+                RedisModuleString* client_name = RedisModule_CreateString(ctx, client_2_query_item.first.c_str(), client_2_query_item.first.length());
+                RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
+                RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
+                xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
+                xadd_params[1] = RedisModule_CreateString(ctx, arguments_arg_str.c_str(), arguments_arg_str.length());
+                int i = 2;
+                for(auto&value : diff_values){
+                    if(i > stream_write_size_total){
+                        assert("Stream writing pass limit ???");
+                    }
+                    xadd_params[i] = RedisModule_CreateString(ctx, value.first.c_str(), value.first.length());
+                    xadd_params[i+1] = RedisModule_CreateString(ctx, value.second.dump().c_str(), value.second.dump().length());
+                    i += 2;
                 }
-                xadd_params[i] = RedisModule_CreateString(ctx, value.first.c_str(), value.first.length());
-                xadd_params[i+1] = RedisModule_CreateString(ctx, value.second.dump().c_str(), value.second.dump().length());
-                i += 2;
-            }
-            int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_size_total/2);
-            if (stream_add_resp != REDISMODULE_OK) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
-            }            
+                int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_size_total/2);
+                if (stream_add_resp != REDISMODULE_OK) {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
+                }
+            }      
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
