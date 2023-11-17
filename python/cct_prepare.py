@@ -14,8 +14,8 @@ TEST_APP_NAME_4 = "app4"
 DUPLICATE = "Duplicate"
 OK = "OK"
 
-TEST_INDEX_NAME = "usersJsonIdx"
-TEST_INDEX_PREFIX = "users:"
+TEST_INDEX_NAME = "test_index"
+TEST_INDEX_PREFIX = "test_data:"
 
 
 def flush_db(r):

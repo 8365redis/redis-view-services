@@ -15,7 +15,7 @@ def before_and_after_test():
 def test_basic_view_query():
     producer = connect_redis()
     flush_db(producer) # clean all db first
-    create_index(producer)
+    cct_prepare.create_index(producer)
 
 
     # ADD INITIAL DATA
@@ -26,7 +26,11 @@ def test_basic_view_query():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    client1.execute_command("VIEW.SEARCH "+ cct_prepare.TEST_INDEX_NAME +" @User\\.PASSPORT:{" + "aaa" + "}")
+
+    client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+
+    res =  client1.execute_command("FT.SEARCH",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+    print(str(res))
 
     time.sleep(1.5)
 
@@ -37,6 +41,9 @@ def test_basic_view_query():
     # UPDATE DATA
     d = cct_prepare.generate_single_object(1001 , 2001, "aaa")
     producer.json().set(key, Path.root_path(), d)
+
+    res =  client1.execute_command("FT.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+    print(str(res))
 
     time.sleep(1.5)
 
@@ -49,6 +56,9 @@ def test_basic_view_query():
     producer.json().set(key, Path.root_path(), d)
 
     time.sleep(1.5)
+
+    res =  client1.execute_command("FT.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+    print(str(res))
 
     # Check stream 
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
