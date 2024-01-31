@@ -18,7 +18,7 @@ using json = nlohmann::json;
 extern "C" {
 #endif
 
-RedisModuleCtx *rdts_staticCtx;
+static RedisModuleCtx *rdts_staticCtx;
 
 const std::string CCT_MODULE_QUERY_DELIMETER = "-CCT_DEL-";
 
@@ -218,6 +218,7 @@ void Main_Search_Handler(RedisModuleCtx *ctx, std::vector<Client_Size_Info> &cli
 
     while(true) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler called." );
+        RedisModule_ThreadSafeContextLock(ctx);
         for(Client_Size_Info &info : client_size_info_arg){
             //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler handling : " + info.stream_name );
             long long size = 0;
@@ -263,6 +264,7 @@ void Main_Search_Handler(RedisModuleCtx *ctx, std::vector<Client_Size_Info> &cli
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
             }
         }
+        RedisModule_ThreadSafeContextUnlock(ctx);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
 }
@@ -279,6 +281,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
 
     while(true) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
+        RedisModule_ThreadSafeContextLock(ctx);
         for (auto &client_2_query_item : client_2_query) {
             //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
             std::string arguments_arg_str = "";
@@ -411,6 +414,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<std::string, st
                 }
             }      
         }
+        RedisModule_ThreadSafeContextUnlock(ctx);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
 }
