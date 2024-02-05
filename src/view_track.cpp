@@ -11,6 +11,7 @@
 #include "module_utils.h"
 #include "register_command.h"
 #include "main_search_command.h"
+#include "unsubscribe_command.h"
 
 #ifndef CCT_MODULE_VERSION
 #define CCT_MODULE_VERSION "unknown"
@@ -60,6 +61,13 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH command created successfully.");
     }
+
+    if (RedisModule_CreateCommand(ctx,"VIEW.UNSUBSCRIBE ", UnSubscribe_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.UNSUBSCRIBE command created successfully.");
+    }
+
 
     Start_Main_Search_Handler(rdts_staticCtx);
 

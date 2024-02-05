@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <json.hpp>
+#include <set>
 
 using json = nlohmann::json;
 
@@ -21,5 +22,6 @@ static std::unordered_map<std::string, std::unordered_map<long long int, std::ve
 // Value is key to value mapping , Query as a string this time , concentation of parameters with delimeter
 static std::unordered_map<std::string, std::unordered_map<std::string, json>> QUERY_2_VALUE_MAP;
 static std::unordered_map<long long int, std::string> ID_2_QUERY_MAP;
+static std::set<long long int> UNSUBSCRIBE_WAITING_LIST;
 
 #endif /* MODULE_CONSTANTS_H */
