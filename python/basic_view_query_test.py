@@ -13,7 +13,7 @@ def before_and_after_test():
     print("End")
 
 def test_basic_view_query():
-    producer = connect_redis()
+    producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 

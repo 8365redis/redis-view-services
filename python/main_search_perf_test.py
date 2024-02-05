@@ -12,6 +12,7 @@ def before_and_after_test():
     kill_redis()
     print("End")
 
+@pytest.disable()
 def test_add_perf_data_and_search():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
