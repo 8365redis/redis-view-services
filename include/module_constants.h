@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <json.hpp>
 #include <set>
+#include <tuple>
 
 using json = nlohmann::json;
 
@@ -23,5 +24,6 @@ static std::unordered_map<std::string, std::unordered_map<long long int, std::ve
 static std::unordered_map<std::string, std::unordered_map<std::string, json>> QUERY_2_VALUE_MAP;
 static std::unordered_map<long long int, std::string> ID_2_QUERY_MAP;
 static std::set<long long int> UNSUBSCRIBE_WAITING_LIST;
+static std::vector<std::tuple<long long int, long long int, long long int>> SCROLL_WAITING_LIST;
 
 #endif /* MODULE_CONSTANTS_H */
