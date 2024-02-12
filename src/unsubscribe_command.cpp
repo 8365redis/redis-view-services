@@ -1,8 +1,9 @@
+#include <string>
+
 #include "unsubscribe_command.h"
 #include "logger.h"
 #include "module_constants.h"
 
-#include <string>
 
 int UnSubscribe_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
     RedisModule_AutoMemory(ctx);
