@@ -37,9 +37,69 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     std::unordered_map<std::string, nlohmann::json> empty;
     QUERY_2_VALUE_MAP[LAST_VIEW_SEARCH_IDENTIFIER] = empty;
     ID_2_QUERY_MAP[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string;
+
+    
+    // Forward Search
+    RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.SEARCH", "v", argv + 1, argc - 1);
+    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
+    }
+
+    // Parse Search Result
+    const size_t reply_length = RedisModule_CallReplyLength(reply);
+    RedisModule_ReplyWithArray(ctx , reply_length + 1); // +1 because we are adding the query id 
+
+    // Add the new query ID 
+    RedisModule_ReplyWithLongLong(ctx, LAST_VIEW_SEARCH_IDENTIFIER);
+
+    RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
+    if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
+        long long size = RedisModule_CallReplyInteger(key_int_reply);
+        RedisModule_ReplyWithLongLong(ctx, size);
+    }else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed to get reply size." );
+        return REDISMODULE_ERR;
+    }
+
+    std::vector<std::vector<std::string>> keys;
+    for (size_t i = 1; i < reply_length; i++) {   // Starting from 1 as first one count
+        RedisModuleCallReply *key_reply = RedisModule_CallReplyArrayElement(reply, i);
+        if (RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_STRING){
+            RedisModuleString *response = RedisModule_CreateStringFromCallReply(key_reply);
+            const char *response_str = RedisModule_StringPtrLen(response, NULL);
+            std::vector<std::string> response_vector = {response_str};
+            keys.push_back(response_vector);
+        }else if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY){
+            size_t inner_reply_length = RedisModule_CallReplyLength(reply);
+            std::vector<std::string> inner_keys;
+            for (size_t i = 0; i < inner_reply_length; i++) {
+                RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, i);
+                if (RedisModule_CallReplyType(inner_key_reply) == REDISMODULE_REPLY_STRING){
+                    RedisModuleString *inner_response = RedisModule_CreateStringFromCallReply(inner_key_reply);
+                    const char *inner_response_str = RedisModule_StringPtrLen(inner_response, NULL);
+                    inner_keys.push_back(inner_response_str);
+                }
+            }
+            keys.push_back(inner_keys);
+        }
+    }
+
+    for (const auto& it : keys) {
+        if ( it.size() == 1){
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
+        }
+        else {
+            RedisModule_ReplyWithArray(ctx , 2);
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
+        }
+    }       
+    
+    /*
     std::string id_str = std::to_string(LAST_VIEW_SEARCH_IDENTIFIER);
     std::string ok_msg = "OK " + id_str;
     RedisModule_ReplyWithSimpleString(ctx, ok_msg.c_str());
+    */
 
     LAST_VIEW_SEARCH_IDENTIFIER = LAST_VIEW_SEARCH_IDENTIFIER + 1;
     return REDISMODULE_OK;
@@ -172,7 +232,6 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 query_2_value[current_query_id] = new_values;
 
                 // Write to stream
-                
                 int stream_write_size = diff_values.size();
                 if( stream_write_size != 0 ) { 
                     int stream_write_size_total = (stream_write_size * 2) + 2;
