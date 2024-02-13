@@ -8,6 +8,16 @@
 
 using json = nlohmann::json;
 
+class View_Diff {
+public:
+    long long int index;
+    std::string key;
+    std::string operation;
+    nlohmann::json old_value;
+    nlohmann::json new_value;
+    std::string diff;
+};
+
 int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
 
@@ -94,12 +104,6 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
         }
     }       
-    
-    /*
-    std::string id_str = std::to_string(LAST_VIEW_SEARCH_IDENTIFIER);
-    std::string ok_msg = "OK " + id_str;
-    RedisModule_ReplyWithSimpleString(ctx, ok_msg.c_str());
-    */
 
     LAST_VIEW_SEARCH_IDENTIFIER = LAST_VIEW_SEARCH_IDENTIFIER + 1;
     return REDISMODULE_OK;
@@ -124,13 +128,6 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
             for (auto &id_to_query_item : client_2_query_item.second) {
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
                 long long int current_query_id = id_to_query_item.first;
-                /*
-                std::string arguments_arg_str = "";
-                for(auto const& e : id_to_query_item.second) arguments_arg_str += (e + CCT_MODULE_QUERY_DELIMETER);
-                if(arguments_arg_str.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
-                    arguments_arg_str.erase(arguments_arg_str.length() - CCT_MODULE_QUERY_DELIMETER.length());
-                }
-                */
 
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : id_to_query_item.second){
@@ -191,42 +188,69 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
             
 
                 //Compare previous values
-                std::unordered_map<std::string, nlohmann::json> diff_values;
+                std::vector<View_Diff> diff_values;
                 
-                std::set<std::string> view_old_keys;
+                std::vector<std::string> view_old_keys;
                 for(auto &kv : query_2_value[current_query_id]) {
-                    view_old_keys.insert(kv.first);
+                    view_old_keys.push_back(kv.first);
                     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key : " + kv.first );
                 }
-                std::set<std::string> view_new_keys;
+                std::vector<std::string> view_new_keys;
                 for(auto &kv : new_values) {
-                    view_new_keys.insert(kv.first);
+                    view_new_keys.push_back(kv.first);
                     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: New key : " + kv.first );
                 }
 
                 // Iterate new keys from old keys
-                for(auto &new_key_from_view : view_new_keys){
-                    nlohmann::json old_value =  old_values[new_key_from_view];
-                    nlohmann::json new_value = new_values[new_key_from_view];
-                    if(old_values.find(new_key_from_view) != old_values.end()){
-                        // new key is in the old key set , now compare value
+                int diff_index = 0;
+                while (diff_index < view_old_keys.size()){
+                    std::string old_key = view_old_keys[diff_index];
+                    std::string new_key = "";
+                    if (diff_index < view_new_keys.size()) {
+                        new_key = view_new_keys[diff_index];
+                    }
+                    nlohmann::json old_value =  old_values[old_key];
+                    nlohmann::json new_value;
+                    if(!new_key.empty()) {
+                        new_value = new_values[new_key];
+                    }
+                    if(!new_key.empty() && !old_key.empty()) {
                         if(new_value != old_value) {
-                            diff_values[new_key_from_view] = new_value;
-                        } 
-                    } else {
-                        // new key is in not in the old key set , directly add it to diff
-                        diff_values[new_key_from_view] = new_value;
+                            View_Diff current_diff;
+                            current_diff.index = diff_index;
+                            current_diff.key = old_key;
+                            current_diff.old_value = old_value;
+                            current_diff.new_value = new_value;
+                            current_diff.operation = "UPDATE";
+                            current_diff.diff = "";
+                            diff_values.push_back(current_diff);
+                        }
+                    } else if( new_key.empty() && !old_key.empty()) { // Some keys are deleted
+                        View_Diff current_diff;
+                        current_diff.index = diff_index;
+                        current_diff.key = old_key;
+                        current_diff.old_value = old_value;
+                        current_diff.new_value = new_value;
+                        current_diff.operation = "DELETE";
+                        current_diff.diff = "";
+                        diff_values.push_back(current_diff);
                     }
+                    diff_index++;
                 }
 
-                // Iterate old key from new keys for finding keys not in view anymore
-                for(auto &old_key_from_view : view_old_keys){
-                    if(view_new_keys.find(old_key_from_view) != view_new_keys.end()){
-                        diff_values[old_key_from_view] = json::object();
-                    }
+                // If the new key list is bigger than old key list it means we have new keys
+                while (diff_index < view_new_keys.size()) {
+                    std::string new_key = view_new_keys[diff_index];
+                    nlohmann::json new_value = new_values[new_key];
+                    View_Diff current_diff;
+                    current_diff.index = diff_index;
+                    current_diff.key = new_key;
+                    current_diff.new_value = new_value;
+                    current_diff.operation = "NEW";
+                    current_diff.diff = "";
+                    diff_values.push_back(current_diff);                    
+                    diff_index++;
                 }
-                
-
 
                 // Write new values 
                 query_2_value[current_query_id] = new_values;
