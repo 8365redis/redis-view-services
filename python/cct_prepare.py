@@ -67,7 +67,7 @@ def add_list(r, data):
         count = count + 1
 
 def create_index(r):
-    schema = (TagField("$.User.ID", as_name="User.ID"), TagField("$.User.PASSPORT", as_name="User.PASSPORT"),  \
-              TagField("$.User.Address.ID", as_name="User.Address.ID"))
+    schema = (TagField("$.User.ID", as_name="User.ID", sortable=True), TagField("$.User.PASSPORT", as_name="User.PASSPORT"),  \
+              TagField("$.User.Address.ID", as_name="User.Address.ID", sortable=True) )
     r.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[TEST_INDEX_PREFIX], index_type=IndexType.JSON))
 

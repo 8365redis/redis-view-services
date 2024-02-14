@@ -10,12 +10,22 @@ using json = nlohmann::json;
 
 class View_Diff {
 public:
-    long long int index;
-    std::string key;
-    std::string operation;
+    long long int index = 0;
+    std::string key = "";
+    std::string operation = "";
     nlohmann::json old_value;
     nlohmann::json new_value;
-    std::string diff;
+    std::string diff = "";
+    nlohmann::json to_json()  {
+        nlohmann::json view_diff_str;
+        view_diff_str["index"] = index;
+        view_diff_str["key"] = key;
+        view_diff_str["operation"] = operation;
+        view_diff_str["old_value"] = old_value;
+        view_diff_str["new_value"] = new_value;
+        view_diff_str["diff"] = diff;
+        return view_diff_str;
+    };
 };
 
 int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
@@ -80,7 +90,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             std::vector<std::string> response_vector = {response_str};
             keys.push_back(response_vector);
         }else if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY){
-            size_t inner_reply_length = RedisModule_CallReplyLength(reply);
+            size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
             std::vector<std::string> inner_keys;
             for (size_t i = 0; i < inner_reply_length; i++) {
                 RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, i);
@@ -99,9 +109,11 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
         }
         else {
-            RedisModule_ReplyWithArray(ctx , 2);
+            RedisModule_ReplyWithArray(ctx , 4);
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
         }
     }       
 
@@ -202,7 +214,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 }
 
                 // Iterate new keys from old keys
-                int diff_index = 0;
+                long unsigned int diff_index = 0;
                 while (diff_index < view_old_keys.size()){
                     std::string old_key = view_old_keys[diff_index];
                     std::string new_key = "";
@@ -214,6 +226,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     if(!new_key.empty()) {
                         new_value = new_values[new_key];
                     }
+
                     if(!new_key.empty() && !old_key.empty()) {
                         if(new_value != old_value) {
                             View_Diff current_diff;
@@ -256,26 +269,27 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 query_2_value[current_query_id] = new_values;
 
                 // Write to stream
-                int stream_write_size = diff_values.size();
-                if( stream_write_size != 0 ) { 
-                    int stream_write_size_total = (stream_write_size * 2) + 2;
+                int diff_size = diff_values.size();
+                json diff_values_json_array = json::array();
+                for(auto &diff : diff_values){
+                    diff_values_json_array.push_back(diff.to_json());
+                }
+
+                if( diff_size != 0 ) { 
+                    int stream_write_size_total = 2 + 2;
                     RedisModuleString* client_name = RedisModule_CreateString(ctx, current_client.c_str(), current_client.length());
                     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
                     RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
                     xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
                     xadd_params[1] = RedisModule_CreateString(ctx, ID_2_QUERY_MAP[current_query_id].c_str(), ID_2_QUERY_MAP[current_query_id].length());
-                    int i = 2;
-                    for(auto&value : diff_values){
-                        if(i > stream_write_size_total){
-                            assert("Stream writing pass limit ???");
-                        }
-                        xadd_params[i] = RedisModule_CreateString(ctx, value.first.c_str(), value.first.length());
-                        xadd_params[i+1] = RedisModule_CreateString(ctx, value.second.dump().c_str(), value.second.dump().length());
-                        i += 2;
-                    }
+                    
+
+                    xadd_params[2] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
+                    xadd_params[3] = RedisModule_CreateString(ctx, diff_values_json_array.dump().c_str(), diff_values_json_array.dump().length());
+
                     int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_size_total/2);
                     if (stream_add_resp != REDISMODULE_OK) {
-                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
+                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler failed to add to the stream." );
                     }
                 }
             }     
