@@ -3,6 +3,8 @@ from manage_redis_data import flush_db, create_index, add_json_data, TEST_INDEX_
 import pytest
 import cct_prepare
 from redis.commands.json.path import Path
+from redis.commands.search.query import GeoFilter, NumericFilter, Query
+from redis.commands.search.result import Result
 import time
 
 @pytest.fixture(autouse=True)
@@ -25,7 +27,8 @@ def test_view_search_return_single():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    print(str(response))
 
     query_id = int(response[0])
     assert query_id == 0
@@ -46,7 +49,7 @@ def test_view_search_return_multi():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
 
     query_id = int(response[0])
     assert query_id == 0
@@ -67,7 +70,7 @@ def test_view_search_return_multi_excess():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
 
     query_id = int(response[0])
     assert query_id == 0
@@ -90,7 +93,7 @@ def test_view_search_no_return():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "bbb" + "}")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "bbb" + "} SORTBY User.ID")
 
 
     query_id = int(response[0])
@@ -112,16 +115,16 @@ def test_view_search_query_id():
     # FIRST CLIENT FIRST QUERY
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.ID:{" + "1000" + "}")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1000" + "} SORTBY User.ID")
     query_id = int(response[0])
     assert query_id == 0
 
     # FIRST CLIENT SECOND QUERY
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.ID:{" + "1001" + "}")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1001" + "} SORTBY User.ID")
     query_id = int(response[0])
     assert query_id == 1
 
     # FIRST CLIENT THIRD QUERY
-    response = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.ID:{" + "1002" + "}")
+    response = client1.execute_command("VIEW.SEARCH "+ cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1002" + "} SORTBY User.ID")
     query_id = int(response[0])
     assert query_id == 2
