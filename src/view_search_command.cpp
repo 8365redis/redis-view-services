@@ -123,13 +123,14 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
 void Start_View_Search_Handler(RedisModuleCtx *ctx) {
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_Main_Search_Handler called." );
-    std::thread view_search_thread(View_Search_Handler, ctx, std::ref(QUERY_2_VALUE_MAP), std::ref(CLIENT_2_QUERY_MAP));
+    std::thread view_search_thread(View_Search_Handler, ctx, std::ref(QUERY_2_VALUE_MAP), std::ref(CLIENT_2_QUERY_MAP), std::ref(QUERY_2_INDEX_MAP));
     view_search_thread.detach();
 }
 
 
 void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, std::unordered_map<std::string, json>> &query_2_value ,
-                             std::unordered_map<std::string, std::unordered_map<long long int, std::vector<std::string>>> &client_2_query) {
+                             std::unordered_map<std::string, std::unordered_map<long long int, std::vector<std::string>>> &client_2_query, 
+                             std::unordered_map<long long int, std::vector<std::string>> &query_2_index) {
 
     while(true) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
@@ -144,7 +145,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : id_to_query_item.second){
                     arguments.push_back(RedisModule_CreateString(ctx, arg.c_str(), arg.length()));
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Arguments : " + arg );
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Arguments : " + arg );
                 }
                 
                 // Forward Search
@@ -163,7 +164,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                         std::vector<std::string> response_vector = {response_str};
                         keys.push_back(response_vector);
                     }else if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
-                        size_t inner_reply_length = RedisModule_CallReplyLength(reply);
+                        size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
                         std::vector<std::string> inner_keys;
                         for (size_t i = 0; i < inner_reply_length; i++) {
                             RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, i);
@@ -176,20 +177,39 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                         keys.push_back(inner_keys);
                     }
                 }
+
+                printf("Keys from search\n");
+                for(auto &pkey: keys){
+                    for(auto &ipkey: pkey){
+                        printf("Key: %s " , ipkey.c_str());
+                    }
+                    printf("\n");
+                }
                 
-                std::unordered_map<std::string, nlohmann::json> old_values = query_2_value[current_query_id];
+                
+                std::unordered_map<std::string, nlohmann::json> old_values;
+                if(query_2_value.count(current_query_id) > 0 ) {
+                    old_values = query_2_value[current_query_id];
+                }
+                std::vector<std::string> view_old_keys;
+                if(query_2_index.count(current_query_id) > 0 ) {
+                    view_old_keys = query_2_index[current_query_id];
+                }
+                
                 //{key_id : json_value}
                 std::unordered_map<std::string, nlohmann::json> new_values;
+                std::vector<std::string> view_new_keys;
                 std::string key = "";
                 for(auto vec : keys){
-                    if(vec.size() == 1){
+                    if(vec.size() == 1){ // Only key
                         key = vec.at(0);
+                        view_new_keys.push_back(key);
                     } else {
                         if(key.empty()){
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler Key is empty." );
                             continue;
                         }
-                        std::string value = vec.at(1);
+                        std::string value = vec.at(3); // It is hardcoded value for value itself
                         if (!json::accept(value)){
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
                         } else {
@@ -201,21 +221,11 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
 
                 //Compare previous values
                 std::vector<View_Diff> diff_values;
-                
-                std::vector<std::string> view_old_keys;
-                for(auto &kv : query_2_value[current_query_id]) {
-                    view_old_keys.push_back(kv.first);
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key : " + kv.first );
-                }
-                std::vector<std::string> view_new_keys;
-                for(auto &kv : new_values) {
-                    view_new_keys.push_back(kv.first);
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: New key : " + kv.first );
-                }
 
                 // Iterate new keys from old keys
                 long unsigned int diff_index = 0;
                 while (diff_index < view_old_keys.size()){
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check old keys" );
                     std::string old_key = view_old_keys[diff_index];
                     std::string new_key = "";
                     if (diff_index < view_new_keys.size()) {
@@ -226,12 +236,14 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     if(!new_key.empty()) {
                         new_value = new_values[new_key];
                     }
-
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
                     if(!new_key.empty() && !old_key.empty()) {
                         if(new_value != old_value) {
+                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
                             View_Diff current_diff;
                             current_diff.index = diff_index;
-                            current_diff.key = old_key;
+                            current_diff.key = new_key;
                             current_diff.old_value = old_value;
                             current_diff.new_value = new_value;
                             current_diff.operation = "UPDATE";
@@ -253,6 +265,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
 
                 // If the new key list is bigger than old key list it means we have new keys
                 while (diff_index < view_new_keys.size()) {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check and add new keys" );
                     std::string new_key = view_new_keys[diff_index];
                     nlohmann::json new_value = new_values[new_key];
                     View_Diff current_diff;
@@ -267,11 +280,14 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
 
                 // Write new values 
                 query_2_value[current_query_id] = new_values;
+                // Write new order 
+                query_2_index[current_query_id] = view_new_keys;
 
                 // Write to stream
                 int diff_size = diff_values.size();
                 json diff_values_json_array = json::array();
                 for(auto &diff : diff_values){
+                    printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.key.c_str());
                     diff_values_json_array.push_back(diff.to_json());
                 }
 
