@@ -104,9 +104,9 @@ def client_action(client_id, stop_event):
     client = connect_redis()
     client.execute_command("VIEW.REGISTER " + CLIENT_NAME_PREFIX + str(client_id))
     name = random.randint(0, 20)
-    client.execute_command(f"VIEW.MAIN.SEARCH {TEST_PERF_INDEX_NAME} @name:{{name}}")
+    #client.execute_command(f"VIEW.MAIN.SEARCH {TEST_PERF_INDEX_NAME} @name:{{name}}")
     while not stop_event.is_set():
-        client.execute_command(f"VIEW.SEARCH {TEST_PERF_INDEX_NAME} @name:{{name}} LIMIT 0 {CLIENT_VIEW_SEARCH_VIEW_SIZE}")
+        client.execute_command(f"VIEW.SEARCH {TEST_PERF_INDEX_NAME} @name:{{name}} LIMIT 0 {CLIENT_VIEW_SEARCH_VIEW_SIZE} SORTBY value1")
         #print("View Search is send")
         time.sleep(CLIENT_QUERY_INTERVAL)
 
