@@ -135,7 +135,7 @@ def test_view_search_stream_write_delete_single():
 
 
 def test_view_search_stream_write_new_added_single():
-    producer = connect_redis()
+    producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 

@@ -15,7 +15,7 @@ public:
     std::string operation = "";
     nlohmann::json old_value;
     nlohmann::json new_value;
-    std::string diff = "";
+    nlohmann::json diff;
     nlohmann::json to_json()  {
         nlohmann::json view_diff_str;
         view_diff_str["index"] = index;
@@ -217,8 +217,6 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                         }
                     }
                 }
-            
-
                 //Compare previous values
                 std::vector<View_Diff> diff_values;
 
@@ -247,7 +245,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                             current_diff.old_value = old_value;
                             current_diff.new_value = new_value;
                             current_diff.operation = "UPDATE";
-                            current_diff.diff = "";
+                            current_diff.diff = json::diff(old_value, new_value);
                             diff_values.push_back(current_diff);
                         }
                     } else if( new_key.empty() && !old_key.empty()) { // Some keys are deleted
@@ -257,7 +255,6 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                         current_diff.old_value = old_value;
                         current_diff.new_value = new_value;
                         current_diff.operation = "DELETE";
-                        current_diff.diff = "";
                         diff_values.push_back(current_diff);
                     }
                     diff_index++;
@@ -273,7 +270,6 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     current_diff.key = new_key;
                     current_diff.new_value = new_value;
                     current_diff.operation = "NEW";
-                    current_diff.diff = "";
                     diff_values.push_back(current_diff);                    
                     diff_index++;
                 }
