@@ -16,10 +16,10 @@ CLIENT_NAME_PREFIX = "Client-"
 
 
 LOG_TIME_INTERVAL = 1 # seconds interval it will print the latency values
-TOTAL_INSERT_COUNT = 10000 # total number of keys to insert 
+TOTAL_INSERT_COUNT = 1000000 # total number of keys to insert 
 THREAD_COUNT = 10 # total thread count to insert and update
-TOTAL_UPDATE_RATE_START = 100 # total update count per second (it will divided to thread count )
-MAX_UPDATE_RATE_PER_THREAD = 5000 # after update rate per thread increased and passed this number it will reset to start rate
+TOTAL_UPDATE_RATE_START = 1000 # total update count per second (it will divided to thread count )
+MAX_UPDATE_RATE_PER_THREAD = 10000# after update rate per thread increased and passed this number it will reset to start rate
 RATE_INCREASE_DELAY = 4 # seconds interval delay rate for increase
 RATE_INCREASE_MULTIPLY = 3 # times rate will increase (for example for 2 : 3 -> 6 -> 12 -> 24)
 CLIENT_COUNT = 10
