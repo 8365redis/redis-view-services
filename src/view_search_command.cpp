@@ -114,8 +114,6 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             RedisModule_ReplyWithArray(ctx , 2);
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
-            //RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
-            //RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
         }
     }
 
@@ -385,6 +383,40 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
             ID_2_QUERY_MAP.erase(unsub_id);
         }
         UNSUBSCRIBE_WAITING_LIST.clear();
+
+        // Process Scrolls
+        for (auto &scroll_triplet : SCROLL_WAITING_LIST) {
+            long long int query_id = std::get<0>(scroll_triplet);
+            long long int offset = std::get<1>(scroll_triplet);
+            long long int limit = std::get<2>(scroll_triplet);
+
+            
+            for(auto &c2q : client_2_query) {
+                std::string current_client = c2q.first;
+                std::vector<std::string> query_vec = c2q.second[query_id];
+                for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
+                    if (query_vec[arg_index] == "LIMIT") {
+                        if(query_vec.size() > arg_index + 2){
+                            query_vec[arg_index+1] = offset;
+                            query_vec[arg_index+2] = limit;
+                            client_2_query[current_client][query_id] = query_vec; // Update global 
+                            std::string arguments_string = "";
+                            for(auto const& e : query_vec) arguments_string += (e + CCT_MODULE_QUERY_DELIMETER);
+                            if(arguments_string.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
+                                arguments_string.erase(arguments_string.length() - CCT_MODULE_QUERY_DELIMETER.length());
+                            }
+                            ID_2_QUERY_MAP[query_id] = arguments_string;
+                            
+                        } else {
+                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: ." + std::to_string(query_id) );
+                            break;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        SCROLL_WAITING_LIST.clear();
 
         RedisModule_ThreadSafeContextUnlock(ctx);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second

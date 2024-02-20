@@ -12,8 +12,7 @@
 #include "register_command.h"
 #include "main_search_command.h"
 #include "unsubscribe_command.h"
-
-#include <iostream>
+#include "scroll_command.h"
 
 #ifndef CCT_MODULE_VERSION
 #define CCT_MODULE_VERSION "unknown"
@@ -65,10 +64,15 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     }
 
     if (RedisModule_CreateCommand(ctx, "VIEW.UNSUBSCRIBE", UnSubscribe_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
-        std::cout<<"register failed ?"<<std::endl;
         return REDISMODULE_ERR;
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.UNSUBSCRIBE command created successfully.");
+    }
+
+    if (RedisModule_CreateCommand(ctx, "VIEW.SCROLL", Scroll_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SCROLL command created successfully.");
     }
     
     // Set Global Search Dialect to 4
