@@ -9,6 +9,9 @@ from redis.commands.search.field import NumericField, TagField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from statistics import mean
 import re
+import pytest
+
+pytest.skip("Skip during test , remove this during manual run", allow_module_level=True)
 
 TEST_PERF_INDEX_NAME = "Messages"
 TEST_PERF_INDEX_PREFIX = "Message:"

@@ -27,39 +27,40 @@ def test_view_query_id():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    result = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
-    assert(id , result.split(' ')[1])
+    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    print(str(result))
+    assert id ==  result[0]
     id = id + 1
 
-    result = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aab" + "}")
-    assert(id , result.split(' ')[1])
+    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert id ==  result[0]
     id = id + 1
 
-    result = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aac" + "}")
-    assert(id , result.split(' ')[1])
+    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert id ==  result[0]
     id = id + 1
 
     # SECOND CLIENT
     client2 = connect_redis()
     client2.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_2)
-    result = client2.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
-    assert(id , result.split(' ')[1])
+    result = client2.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert id ==  result[0]
     id = id + 1
 
-    result = client2.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aad" + "}")
-    assert(id , result.split(' ')[1])
+    result = client2.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert id ==  result[0]
     id = id + 1
 
     # FIRST CLIENT AGAIN
-    result = client1.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aae" + "}")
-    assert(id , result.split(' ')[1])
+    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert id ==  result[0]
     id = id + 1
 
     # THIRD CLIENT
     client3 = connect_redis()
     client3.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_3)
-    result = client3.execute_command("VIEW.SEARCH ",cct_prepare.TEST_INDEX_NAME , "@User\\.PASSPORT:{" + "aaa" + "}")
-    assert(id , result.split(' ')[1]) 
+    result = client3.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert id ==  result[0]
     id = id + 1
 
 
