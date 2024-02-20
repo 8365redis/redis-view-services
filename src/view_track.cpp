@@ -64,7 +64,6 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH command created successfully.");
     }
 
-    
     if (RedisModule_CreateCommand(ctx, "VIEW.UNSUBSCRIBE", UnSubscribe_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
         std::cout<<"register failed ?"<<std::endl;
         return REDISMODULE_ERR;
@@ -72,7 +71,12 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.UNSUBSCRIBE command created successfully.");
     }
     
-
+    // Set Global Search Dialect to 4
+    RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.CONFIG", "ccc", "SET", "DEFAULT_DIALECT", std::to_string(DEFAULT_DIALECT).c_str());
+    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_STRING) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Setting Global Dialect Failed." );
+        return REDISMODULE_ERR;
+    }
 
     Start_Main_Search_Handler(rdts_staticCtx);
 

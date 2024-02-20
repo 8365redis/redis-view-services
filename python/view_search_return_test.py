@@ -53,7 +53,7 @@ def test_view_search_return_multi():
 
     query_id = int(response[0])
     assert query_id == 0
-    response_size = int(response[1])
+    response_size = int((len(response)-2)/2)
     assert response_size == 10
 
 def test_view_search_return_multi_excess():
@@ -74,10 +74,8 @@ def test_view_search_return_multi_excess():
 
     query_id = int(response[0])
     assert query_id == 0
-    response_size = int(response[1])
-    assert response_size == 30
-    real_size = int(len(response[2]))
-    assert real_size == 11
+    response_size = int((len(response)-2)/2)
+    assert response_size == 10
 
 def test_view_search_no_return():
     producer = connect_redis_with_start()

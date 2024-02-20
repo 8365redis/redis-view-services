@@ -11,7 +11,8 @@ using json = nlohmann::json;
 class View_Diff {
 public:
     long long int index = 0;
-    std::string key = "";
+    std::string old_key = "";
+    std::string new_key = "";
     std::string operation = "";
     nlohmann::json old_value;
     nlohmann::json new_value;
@@ -19,7 +20,8 @@ public:
     nlohmann::json to_json()  {
         nlohmann::json view_diff_str;
         view_diff_str["index"] = index;
-        view_diff_str["key"] = key;
+        view_diff_str["old_key"] = old_key;
+        view_diff_str["new_key"] = new_key;
         view_diff_str["operation"] = operation;
         view_diff_str["old_value"] = old_value;
         view_diff_str["new_value"] = new_value;
@@ -109,11 +111,11 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
         }
         else {
-            RedisModule_ReplyWithArray(ctx , 4);
+            RedisModule_ReplyWithArray(ctx , 2);
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
+            //RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
+            //RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
         }
     }
 
@@ -130,7 +132,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler Key is empty." );
                 continue;
             }
-            std::string value = vec.at(3); // It is hardcoded value for value itself
+            std::string value = vec.at(1); // It is hardcoded value for value itself
             if (!json::accept(value)){
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
             } else {
@@ -147,7 +149,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         nlohmann::json new_value = new_values[key];
         View_Diff current_diff;
         current_diff.index = index;
-        current_diff.key = key;
+        current_diff.new_key = key;
         current_diff.new_value = new_value;
         current_diff.operation = "NEW";
         diff_values.push_back(current_diff);                    
@@ -158,7 +160,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     int diff_size = diff_values.size();
     json diff_values_json_array = json::array();
     for(auto &diff : diff_values){
-        printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.key.c_str());
+        printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
         diff_values_json_array.push_back(diff.to_json());
     }
 
@@ -249,17 +251,6 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     }
                 }
 
-                /*
-                printf("Keys from search\n");
-                for(auto &pkey: keys){
-                    for(auto &ipkey: pkey){
-                        printf("Key: %s " , ipkey.c_str());
-                    }
-                    printf("\n");
-                }
-                */
-                
-                
                 std::unordered_map<std::string, nlohmann::json> old_values;
                 if(query_2_value.count(current_query_id) > 0 ) {
                     old_values = query_2_value[current_query_id];
@@ -282,7 +273,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler Key is empty." );
                             continue;
                         }
-                        std::string value = vec.at(3); // It is hardcoded value for value itself
+                        std::string value = vec.at(1); // It is hardcoded value for value itself
                         if (!json::accept(value)){
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
                         } else {
@@ -314,7 +305,8 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
                             View_Diff current_diff;
                             current_diff.index = diff_index;
-                            current_diff.key = new_key;
+                            current_diff.old_key = old_key;
+                            current_diff.new_key = new_key;
                             current_diff.old_value = old_value;
                             current_diff.new_value = new_value;
                             current_diff.operation = "UPDATE";
@@ -324,7 +316,8 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     } else if( new_key.empty() && !old_key.empty()) { // Some keys are deleted
                         View_Diff current_diff;
                         current_diff.index = diff_index;
-                        current_diff.key = old_key;
+                        current_diff.old_key = old_key;
+                        current_diff.new_key = new_key;
                         current_diff.old_value = old_value;
                         current_diff.new_value = new_value;
                         current_diff.operation = "DELETE";
@@ -340,7 +333,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     nlohmann::json new_value = new_values[new_key];
                     View_Diff current_diff;
                     current_diff.index = diff_index;
-                    current_diff.key = new_key;
+                    current_diff.new_key = new_key;
                     current_diff.new_value = new_value;
                     current_diff.operation = "NEW";
                     diff_values.push_back(current_diff);                    
@@ -356,7 +349,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 int diff_size = diff_values.size();
                 json diff_values_json_array = json::array();
                 for(auto &diff : diff_values){
-                    printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.key.c_str());
+                    printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
                     diff_values_json_array.push_back(diff.to_json());
                 }
 
