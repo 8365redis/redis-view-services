@@ -146,48 +146,6 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             }
         }
     }
-    //Compare previous values (it is all new)
-    std::vector<View_Diff> diff_values;
-
-    int index = 0;
-    for (auto &key : view_new_keys) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check and add new keys" );
-        nlohmann::json new_value = new_values[key];
-        View_Diff current_diff;
-        current_diff.index = index;
-        current_diff.new_key = key;
-        current_diff.new_value = new_value;
-        current_diff.operation = "NEW";
-        diff_values.push_back(current_diff);                    
-        index++;
-    }
-
-    // Write to stream
-    int diff_size = diff_values.size();
-    json diff_values_json_array = json::array();
-    for(auto &diff : diff_values){
-        //printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
-        diff_values_json_array.push_back(diff.to_json());
-    }
-
-    if( diff_size != 0 ) { 
-        int stream_write_size_total = 2 + 2;
-        RedisModuleString* client_name = RedisModule_CreateString(ctx, client_name_str.c_str(), client_name_str.length());
-        RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
-        RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
-        xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
-        xadd_params[1] = RedisModule_CreateString(ctx, d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER].c_str(), d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER].length());
-        
-
-        xadd_params[2] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
-        xadd_params[3] = RedisModule_CreateString(ctx, diff_values_json_array.dump().c_str(), diff_values_json_array.dump().length());
-
-        int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_size_total/2);
-        if (stream_add_resp != REDISMODULE_OK) {
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler failed to add to the stream." );
-        }
-    }
-
 
     // Write new values 
     d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = new_values;
