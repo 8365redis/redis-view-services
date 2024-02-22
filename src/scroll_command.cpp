@@ -31,7 +31,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand given params is invalid." );
             return RedisModule_ReplyWithError(ctx, "Given params must be bigger than zero");            
         }
-        d_h.scroll_wait_list.push_back(std::make_tuple(query_id, offset, limit));
+
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed parse params." );
         return RedisModule_ReplyWithError(ctx, strerror(errno)); 
@@ -45,7 +45,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 
     std::vector<std::string> query_vec;
     if(d_h.client_2_query.count(client_name_str) > 0 && d_h.client_2_query[client_name_str].count(query_id) > 0){
-        query_vec = d_h.client_2_query[client_name_str][query_id];
+        query_vec = d_h.client_2_query[client_name_str][query_id]; // This is copy
     }else {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed: Given query is not found client: " + client_name_str + " query id: " + std::to_string(query_id) );
         return RedisModule_ReplyWithError(ctx, strerror(errno));        
@@ -136,6 +136,9 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
         }
     }
+
+    // Add to scroll after confirming new scroll is succesful
+    d_h.scroll_wait_list.push_back(std::make_tuple(query_id, offset, limit));
 
     Print_Status(ctx , "Scroll_RedisCommand ends");
 
