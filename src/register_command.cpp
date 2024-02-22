@@ -3,7 +3,7 @@
 
 int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
     RedisModule_AutoMemory(ctx);
-    
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Register_RedisCommand called." );
     if (argc < 2  || argc > 3) {
         return RedisModule_WrongArity(ctx);
     }

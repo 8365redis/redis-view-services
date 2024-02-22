@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "module_constants.h"
 #include "module_utils.h"
+#include "module_data_handler.h"
 
 using json = nlohmann::json;
 
@@ -33,6 +34,10 @@ public:
 int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
 
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand called." );
+
+    Data_Handler &d_h = Data_Handler::getInstance();
+    
     std::vector<RedisModuleString*> arguments_redis_string_vector(argv+1, argv + argc);
     std::vector<std::string> arguments_string_vector;
     for(RedisModuleString* arg : arguments_redis_string_vector) {
@@ -47,19 +52,22 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
     std::string client_name_str = Get_Client_Name(ctx);
 
-    if( CLIENT_2_QUERY_MAP.count(client_name_str) == 0) { 
+    if( d_h.client_2_query.count(client_name_str) == 0) { 
         std::unordered_map<long long int, std::vector<std::string>> first_entry_dict;
         first_entry_dict[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
-        CLIENT_2_QUERY_MAP[client_name_str] = first_entry_dict;
+        d_h.client_2_query[client_name_str] = first_entry_dict;
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand clients first query." );
     }else {
-        CLIENT_2_QUERY_MAP[client_name_str][LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand client has previous queries." );
+        d_h.client_2_query[client_name_str][LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
     }
     
     printf("Client : %s , Query : %s \n" , client_name_str.c_str(), arguments_string.c_str());
     std::unordered_map<std::string, nlohmann::json> empty;
-    QUERY_2_VALUE_MAP[LAST_VIEW_SEARCH_IDENTIFIER] = empty;
-    ID_2_QUERY_MAP[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string;
-
+    d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = empty;
+    d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string;
+    
+    Print_Status(ctx, "Starting View_Search_RedisCommand");
     
     // Forward Search
     RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.SEARCH", "v", argv + 1, argc - 1);
@@ -158,7 +166,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     int diff_size = diff_values.size();
     json diff_values_json_array = json::array();
     for(auto &diff : diff_values){
-        printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
+        //printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
         diff_values_json_array.push_back(diff.to_json());
     }
 
@@ -168,7 +176,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
         RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
         xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
-        xadd_params[1] = RedisModule_CreateString(ctx, ID_2_QUERY_MAP[LAST_VIEW_SEARCH_IDENTIFIER].c_str(), ID_2_QUERY_MAP[LAST_VIEW_SEARCH_IDENTIFIER].length());
+        xadd_params[1] = RedisModule_CreateString(ctx, d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER].c_str(), d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER].length());
         
 
         xadd_params[2] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
@@ -182,32 +190,30 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
 
     // Write new values 
-    QUERY_2_VALUE_MAP[LAST_VIEW_SEARCH_IDENTIFIER] = new_values;
+    d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = new_values;
     // Write new order 
-    QUERY_2_INDEX_MAP[LAST_VIEW_SEARCH_IDENTIFIER] = view_new_keys;
-
-
+    d_h.query_2_index[LAST_VIEW_SEARCH_IDENTIFIER] = view_new_keys;
 
     LAST_VIEW_SEARCH_IDENTIFIER = LAST_VIEW_SEARCH_IDENTIFIER + 1;
+
+    Print_Status(ctx, "Ending View_Search_RedisCommand");
     return REDISMODULE_OK;
 }
 
 void Start_View_Search_Handler(RedisModuleCtx *ctx) {
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_Main_Search_Handler called." );
-    std::thread view_search_thread(View_Search_Handler, ctx, std::ref(QUERY_2_VALUE_MAP), std::ref(CLIENT_2_QUERY_MAP), std::ref(QUERY_2_INDEX_MAP));
+    std::thread view_search_thread(View_Search_Handler, ctx);
     view_search_thread.detach();
 }
 
 
-void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, std::unordered_map<std::string, json>> &query_2_value ,
-                             std::unordered_map<std::string, std::unordered_map<long long int, std::vector<std::string>>> &client_2_query, 
-                             std::unordered_map<long long int, std::vector<std::string>> &query_2_index) {
-
+void View_Search_Handler(RedisModuleCtx *ctx) {
+    Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
 
-        for (auto &client_2_query_item : client_2_query) {
+        for (auto &client_2_query_item : d_h.client_2_query) {
             std::string current_client = client_2_query_item.first;
             for (auto &id_to_query_item : client_2_query_item.second) {
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
@@ -250,12 +256,12 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 }
 
                 std::unordered_map<std::string, nlohmann::json> old_values;
-                if(query_2_value.count(current_query_id) > 0 ) {
-                    old_values = query_2_value[current_query_id];
+                if(d_h.query_2_value.count(current_query_id) > 0 ) {
+                    old_values = d_h.query_2_value[current_query_id];
                 }
                 std::vector<std::string> view_old_keys;
-                if(query_2_index.count(current_query_id) > 0 ) {
-                    view_old_keys = query_2_index[current_query_id];
+                if(d_h.query_2_index.count(current_query_id) > 0 ) {
+                    view_old_keys = d_h.query_2_index[current_query_id];
                 }
                 
                 //{key_id : json_value}
@@ -326,7 +332,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
 
                 // If the new key list is bigger than old key list it means we have new keys
                 while (diff_index < view_new_keys.size()) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check and add new keys" );
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check and add new keys" );
                     std::string new_key = view_new_keys[diff_index];
                     nlohmann::json new_value = new_values[new_key];
                     View_Diff current_diff;
@@ -339,15 +345,15 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 }
 
                 // Write new values 
-                query_2_value[current_query_id] = new_values;
+                d_h.query_2_value[current_query_id] = new_values;
                 // Write new order 
-                query_2_index[current_query_id] = view_new_keys;
+                d_h.query_2_index[current_query_id] = view_new_keys;
 
                 // Write to stream
                 int diff_size = diff_values.size();
                 json diff_values_json_array = json::array();
                 for(auto &diff : diff_values){
-                    printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
+                    //printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
                     diff_values_json_array.push_back(diff.to_json());
                 }
 
@@ -357,7 +363,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
                     RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
                     xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
-                    xadd_params[1] = RedisModule_CreateString(ctx, ID_2_QUERY_MAP[current_query_id].c_str(), ID_2_QUERY_MAP[current_query_id].length());
+                    xadd_params[1] = RedisModule_CreateString(ctx, d_h.id_2_query[current_query_id].c_str(), d_h.id_2_query[current_query_id].length());
                     
 
                     xadd_params[2] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
@@ -372,26 +378,29 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
         }
 
         // Unsubscribe queries
-        for (auto &unsub_id : UNSUBSCRIBE_WAITING_LIST) {
+        for (auto &unsub_id : d_h.unsub_wait_list) {
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );
             // client2query
-            for (auto &client_2_query_item : client_2_query) {
+            for (auto &client_2_query_item : d_h.client_2_query) {
                 client_2_query_item.second.erase(unsub_id);
             }
             // query2value
-            query_2_value.erase(unsub_id);
+            d_h.query_2_value.erase(unsub_id);
             // id2query
-            ID_2_QUERY_MAP.erase(unsub_id);
+            d_h.id_2_query.erase(unsub_id);
+
+            d_h.query_2_index.erase(unsub_id);
         }
-        UNSUBSCRIBE_WAITING_LIST.clear();
+        d_h.unsub_wait_list.clear();
 
         // Process Scrolls
-        for (auto &scroll_triplet : SCROLL_WAITING_LIST) {
+        for (auto &scroll_triplet : d_h.scroll_wait_list) {
             long long int query_id = std::get<0>(scroll_triplet);
             long long int offset = std::get<1>(scroll_triplet);
             long long int limit = std::get<2>(scroll_triplet);
-
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler scrolling query id :. " + std::to_string(query_id) );
             
-            for(auto &c2q : client_2_query) {
+            for(auto &c2q : d_h.client_2_query) {
                 std::string current_client = c2q.first;
                 std::vector<std::string> query_vec = c2q.second[query_id];
                 for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
@@ -399,13 +408,13 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                         if(query_vec.size() > arg_index + 2){
                             query_vec[arg_index+1] = offset;
                             query_vec[arg_index+2] = limit;
-                            client_2_query[current_client][query_id] = query_vec; // Update global 
+                            d_h.client_2_query[current_client][query_id] = query_vec; // Update global 
                             std::string arguments_string = "";
                             for(auto const& e : query_vec) arguments_string += (e + CCT_MODULE_QUERY_DELIMETER);
                             if(arguments_string.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
                                 arguments_string.erase(arguments_string.length() - CCT_MODULE_QUERY_DELIMETER.length());
                             }
-                            ID_2_QUERY_MAP[query_id] = arguments_string;
+                            d_h.id_2_query[query_id] = arguments_string; // Update global 
                             
                         } else {
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: ." + std::to_string(query_id) );
@@ -416,7 +425,7 @@ void View_Search_Handler(RedisModuleCtx *ctx, std::unordered_map<long long int, 
                 }
             }
         }
-        SCROLL_WAITING_LIST.clear();
+        d_h.scroll_wait_list.clear();
 
         RedisModule_ThreadSafeContextUnlock(ctx);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second

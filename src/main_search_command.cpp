@@ -10,6 +10,8 @@
 int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
 
+    Data_Handler &d_h = Data_Handler::getInstance();
+
     std::vector<RedisModuleString*> arguments(argv+1, argv + argc);
     arguments.push_back(RedisModule_CreateString(ctx, "LIMIT", 5 ));
     arguments.push_back(RedisModule_CreateString(ctx, "0", 1 ));
@@ -25,7 +27,7 @@ int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     info.stream_name = Get_Client_Name(ctx);
     info.arguments.insert(info.arguments.begin(), arguments_arg.begin(), arguments_arg.end());
 
-    CLIENT_SIZE_INFO.push_back(info);
+    d_h.client_size_info.push_back(info);
     //printf("CLIENT_SIZE_INFO size : %lu\n",CLIENT_SIZE_INFO.size());
     
     RedisModule_ReplyWithSimpleString(ctx, "OK");
@@ -34,17 +36,17 @@ int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
 void Start_Main_Search_Handler(RedisModuleCtx *ctx) {
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_Main_Search_Handler called." );
-    std::thread main_search_thread(Main_Search_Handler, ctx, std::ref(CLIENT_SIZE_INFO));
+    std::thread main_search_thread(Main_Search_Handler, ctx);
     main_search_thread.detach();
 }
 
 
-void Main_Search_Handler(RedisModuleCtx *ctx, std::vector<Client_Size_Info> &client_size_info_arg) {
-
+void Main_Search_Handler(RedisModuleCtx *ctx) {
+    Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
-        for(Client_Size_Info &info : client_size_info_arg){
+        for(Client_Size_Info &info : d_h.client_size_info){
             //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler handling : " + info.stream_name );
             long long size = 0;
             std::string index_and_query = "";

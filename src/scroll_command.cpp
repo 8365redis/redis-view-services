@@ -1,13 +1,19 @@
+#include <tuple>
+
 #include "scroll_command.h"
 #include "module_constants.h"
 #include "logger.h"
-#include <tuple>
+#include "module_utils.h"
+#include "module_data_handler.h"
 
 
 int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Scroll_RedisCommand called." );
     if (argc != 4) {
         return RedisModule_WrongArity(ctx);
     }
+
+    Data_Handler &d_h = Data_Handler::getInstance();
 
     RedisModuleString *query_id_str = argv[1];
     long long query_id = -1;
@@ -25,24 +31,31 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand given params is invalid." );
             return RedisModule_ReplyWithError(ctx, "Given params must be bigger than zero");            
         }
-        SCROLL_WAITING_LIST.push_back(std::make_tuple(query_id, offset, limit));
+        d_h.scroll_wait_list.push_back(std::make_tuple(query_id, offset, limit));
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed parse params." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno)); 
+    }
+
+    std::string client_name_str = Get_Client_Name(ctx);
+
+    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand called with given params: " + client_name_str + " query id: " + std::to_string(query_id) + \
+                                                " offset: " +  std::to_string(offset) + " limit: " +  std::to_string(limit));
+    Print_Status(ctx , "Scroll_RedisCommand start");
+
+    std::vector<std::string> query_vec;
+    if(d_h.client_2_query.count(client_name_str) > 0 && d_h.client_2_query[client_name_str].count(query_id) > 0){
+        query_vec = d_h.client_2_query[client_name_str][query_id];
+    }else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed: Given query is not found client: " + client_name_str + " query id: " + std::to_string(query_id) );
         return RedisModule_ReplyWithError(ctx, strerror(errno));        
     }
 
-    if (QUERY_2_INDEX_MAP.count(query_id) <= 0) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed with non existing query id." );
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
-    }
-
-    std::vector<std::string> query_vec = QUERY_2_INDEX_MAP[query_id];
-
     for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
         if (query_vec[arg_index] == "LIMIT") {
-            if(query_vec.size() > arg_index + 2){
-                query_vec[arg_index+1] = offset;
-                query_vec[arg_index+2] = limit;
+            if(query_vec.size() > arg_index + 2) {
+                query_vec[arg_index+1] = std::to_string(offset);
+                query_vec[arg_index+2] = std::to_string(limit);
             } else {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed: LIMIT argument doesn't have params." );
                 return RedisModule_ReplyWithError(ctx, strerror(errno));
@@ -52,14 +65,19 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     }
 
     std::vector<RedisModuleString*> arguments;
+    std::string all_arg_str;
     for(std::string arg : query_vec){
+        all_arg_str = all_arg_str +  arg + " ";
         arguments.push_back(RedisModule_CreateString(ctx, arg.c_str(), arg.length()));
     }
+
+    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand will call FT.SEARCH with given params : " +  all_arg_str);
 
     // Forward Search
     RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.SEARCH", "v", arguments.begin(), arguments.size());
     if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler FT.SEARCH failed." );
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand FT.SEARCH failed." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
 
     // Parse Search Result
@@ -74,8 +92,8 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         long long size = RedisModule_CallReplyInteger(key_int_reply);
         RedisModule_ReplyWithLongLong(ctx, size);
     }else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed to get reply size." );
-        return REDISMODULE_ERR;
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand failed to get reply size." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
 
     std::vector<std::vector<std::string>> keys;
@@ -111,6 +129,8 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
         }
     }
+
+    Print_Status(ctx , "Scroll_RedisCommand ends");
 
     return REDISMODULE_OK;
 }
