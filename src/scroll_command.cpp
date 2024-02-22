@@ -51,8 +51,10 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         return RedisModule_ReplyWithError(ctx, strerror(errno));        
     }
 
+    bool limit_arg_found = false;
     for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
         if (query_vec[arg_index] == "LIMIT") {
+            limit_arg_found = true;
             if(query_vec.size() > arg_index + 2) {
                 query_vec[arg_index+1] = std::to_string(offset);
                 query_vec[arg_index+2] = std::to_string(limit);
@@ -62,6 +64,11 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
             }
             break;
         }
+    }
+
+    if(limit_arg_found == false) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand query doesn't have LIMIT argument." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
 
     std::vector<RedisModuleString*> arguments;
