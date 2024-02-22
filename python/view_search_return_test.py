@@ -157,3 +157,22 @@ def test_view_search_query_id():
     response = client1.execute_command("VIEW.SEARCH "+ cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1002" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
     assert query_id == 2
+
+
+def test_view_search_without_limit():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    d = cct_prepare.generate_single_object(1000 , 2000, "aaa")
+    key = cct_prepare.TEST_INDEX_PREFIX + str(1)
+    producer.json().set(key, Path.root_path(), d)
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+
+    with pytest.raises(Exception) as e_info:
+        client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    assert "ResponseError" in str(e_info)
