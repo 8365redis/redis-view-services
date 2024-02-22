@@ -27,7 +27,7 @@ def test_view_search_return_single():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     print(str(response))
 
     query_id = int(response[0])
@@ -49,7 +49,7 @@ def test_view_search_return_multi():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
 
     query_id = int(response[0])
     assert query_id == 0
@@ -70,7 +70,7 @@ def test_view_search_return_multi_excess():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     print(str(response))
 
     query_id = int(response[0])
@@ -92,7 +92,7 @@ def test_view_search_return_multi_excess_with_limit():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT 0 10")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     print(str(response))
 
     query_id = int(response[0])
@@ -100,7 +100,7 @@ def test_view_search_return_multi_excess_with_limit():
     response_size = int((len(response)-2)/2)
     assert response_size == 10
 
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT 0 10")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     print(str(response))
 
     query_id = int(response[0])
@@ -122,7 +122,7 @@ def test_view_search_no_return():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "bbb" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "bbb" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
 
 
     query_id = int(response[0])
@@ -144,16 +144,16 @@ def test_view_search_query_id():
     # FIRST CLIENT FIRST QUERY
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1000" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1000" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
     assert query_id == 0
 
     # FIRST CLIENT SECOND QUERY
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1001" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1001" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
     assert query_id == 1
 
     # FIRST CLIENT THIRD QUERY
-    response = client1.execute_command("VIEW.SEARCH "+ cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1002" + "} SORTBY User.ID")
+    response = client1.execute_command("VIEW.SEARCH "+ cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1002" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
     assert query_id == 2

@@ -40,8 +40,18 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     
     std::vector<RedisModuleString*> arguments_redis_string_vector(argv+1, argv + argc);
     std::vector<std::string> arguments_string_vector;
+    bool limit_arg_found = false;
     for(RedisModuleString* arg : arguments_redis_string_vector) {
-        arguments_string_vector.push_back(RedisModule_StringPtrLen(arg, NULL));
+        std::string arg_str = RedisModule_StringPtrLen(arg, NULL);
+        if (limit_arg_found == false && arg_str == "LIMIT") {
+            limit_arg_found = true;
+        }
+        arguments_string_vector.push_back(arg_str);
+    }
+
+    if(limit_arg_found == false) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand query doesn't have LIMIT argument." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
 
     std::string arguments_string = "";
@@ -62,7 +72,8 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         d_h.client_2_query[client_name_str][LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
     }
     
-    printf("Client : %s , Query : %s \n" , client_name_str.c_str(), arguments_string.c_str());
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand called for client : " + client_name_str + " with argument : " + arguments_string );
+
     std::unordered_map<std::string, nlohmann::json> empty;
     d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = empty;
     d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string;
@@ -88,7 +99,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         RedisModule_ReplyWithLongLong(ctx, size);
     }else {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed to get reply size." );
-        return REDISMODULE_ERR;
+        return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
 
     std::vector<std::vector<std::string>> keys;

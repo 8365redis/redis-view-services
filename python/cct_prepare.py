@@ -17,6 +17,8 @@ OK = "OK"
 TEST_INDEX_NAME = "test_index"
 TEST_INDEX_PREFIX = "test_data:"
 
+QUERY_FULL_POSTFIX = " SORTBY User.ID LIMIT 0 10"
+
 
 def flush_db(r):
     r.flushall()
