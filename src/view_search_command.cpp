@@ -61,23 +61,9 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     }
 
     std::string client_name_str = Get_Client_Name(ctx);
-
-    if( d_h.client_2_query.count(client_name_str) == 0) { 
-        std::unordered_map<long long int, std::vector<std::string>> first_entry_dict;
-        first_entry_dict[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
-        d_h.client_2_query[client_name_str] = first_entry_dict;
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand clients first query." );
-    }else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand client has previous queries." );
-        d_h.client_2_query[client_name_str][LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
-    }
     
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand called for client : " + client_name_str + " with argument : " + arguments_string );
 
-    std::unordered_map<std::string, nlohmann::json> empty;
-    d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = empty;
-    d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string;
-    
     Print_Status(ctx, "Starting View_Search_RedisCommand");
     
     // Forward Search
@@ -158,9 +144,18 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         }
     }
 
-    // Write new values 
+    // Update Global values
+    if( d_h.client_2_query.count(client_name_str) == 0) { 
+        std::unordered_map<long long int, std::vector<std::string>> first_entry_dict;
+        first_entry_dict[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
+        d_h.client_2_query[client_name_str] = first_entry_dict;
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand clients first query." );
+    }else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand client has previous queries." );
+        d_h.client_2_query[client_name_str][LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_vector;
+    }
+    d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string;
     d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = new_values;
-    // Write new order 
     d_h.query_2_index[LAST_VIEW_SEARCH_IDENTIFIER] = view_new_keys;
 
     LAST_VIEW_SEARCH_IDENTIFIER = LAST_VIEW_SEARCH_IDENTIFIER + 1;
