@@ -255,7 +255,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 // Iterate new keys from old keys
                 long unsigned int diff_index = 0;
                 while (diff_index < view_old_keys.size()){
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check old keys" );
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Starting to check old keys" );
                     std::string old_key = view_old_keys[diff_index];
                     std::string new_key = "";
                     if (diff_index < view_new_keys.size()) {
@@ -266,11 +266,11 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     if(!new_key.empty()) {
                         new_value = new_values[new_key];
                     }
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
                     if(!new_key.empty() && !old_key.empty()) {
                         if(new_value != old_value) {
-                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
+                            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
                             View_Diff current_diff;
                             current_diff.index = diff_index;
                             current_diff.old_key = old_key;
@@ -317,7 +317,6 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 int diff_size = diff_values.size();
                 json diff_values_json_array = json::array();
                 for(auto &diff : diff_values){
-                    //printf("Index : %s and key : %s" , std::to_string(diff.index).c_str() , diff.new_key.c_str());
                     diff_values_json_array.push_back(diff.to_json());
                 }
 
