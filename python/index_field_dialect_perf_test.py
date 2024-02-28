@@ -1,4 +1,4 @@
-from manage_redis import kill_redis, connect_redis_with_start, connect_redis
+from manage_redis import kill_redis, connect_redis_with_start, connect_redis, connect_redis_with_start_without_module
 from manage_redis_data import flush_db, create_index, add_json_data, TEST_INDEX_NAME
 from redis.commands.search.field import TextField, NumericField, TagField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
@@ -18,6 +18,7 @@ TEST_INDEX_TEXT_PREFIX = "test_text_data:"
 TEST_INDEX_NUM = "test_index_num"
 TEST_INDEX_NUM_PREFIX = "test_num_data:"
 
+pytest.skip("Skip during test , remove this during manual run", allow_module_level=True)
 
 def create_index_as_tag(r):
     schema = (TagField("$.User.ID", as_name="User.ID", sortable=True), TagField("$.User.PASSPORT", as_name="User.PASSPORT"),  \
@@ -53,17 +54,18 @@ def before_and_after_test():
     print("End")
 
 def test_different_index_dialect_perf():
-    producer = connect_redis_with_start()
-    flush_db(producer) # clean all db first
+    producer = connect_redis_with_start_without_module()
+    #flush_db(producer) # clean all db first
     
-    time.sleep(1)
+    time.sleep(30)
 
+    #response = producer.execute_command("ft.config set default_dialect 4")
     response = producer.execute_command("ft.config get default_dialect")
     print("Current DIALECT : " + str(response))
 
     TOTAL_KEY_COUNT = 500000
     OFFSET = random.randint(0 , TOTAL_KEY_COUNT)
-    NUM =  random.randint(0 , 10)
+    NUM =  random.randint(50 , 100)
 
     response = producer.execute_command("FT.CONFIG SET MAXSEARCHRESULTS " + str(TOTAL_KEY_COUNT))
 
@@ -71,7 +73,7 @@ def test_different_index_dialect_perf():
     print("Current NUM : " + str(NUM))
 
     
-
+    '''
     #####################################################
     # FIRST TAG
     prod1 = connect_redis()
@@ -101,10 +103,9 @@ def test_different_index_dialect_perf():
         d = generate_single_object_as_num(random.randint(0 , TOTAL_KEY_COUNT) , random.randint(0 , TOTAL_KEY_COUNT), "aaa")
         key = TEST_INDEX_NUM_PREFIX + str(i)
         prod3.json().set(key, Path.root_path(), d)
-    
+    '''
     # FIRST CLIENT
     client1 = connect_redis()
-    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
     tag_search_dialect_1_times = []
     text_search_dialect_1_times = []
@@ -138,19 +139,19 @@ def test_different_index_dialect_perf():
 
         # TAG SEARCH
         start_set_time = time.time_ns()
-        response = client1.execute_command("FT.SEARCH " + TEST_INDEX_TAG + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT " + str(OFFSET) + " " + str(NUM))
+        response = client1.execute_command("FT.SEARCH " + TEST_INDEX_TAG + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT " + str(OFFSET) + " " + str(NUM) + " DIALECT 4")
         end_set_time = time.time_ns()
         naive_latency = (end_set_time - start_set_time) // 1000
         tag_search_dialect_4_times.append(naive_latency)
         # TEXT SEARCH
         start_set_time = time.time_ns()
-        response = client1.execute_command("FT.SEARCH " + TEST_INDEX_TEXT + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT " + str(OFFSET) + " " + str(NUM))
+        response = client1.execute_command("FT.SEARCH " + TEST_INDEX_TEXT + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT " + str(OFFSET) + " " + str(NUM) + " DIALECT 4")
         end_set_time = time.time_ns()
         naive_latency = (end_set_time - start_set_time) // 1000
         text_search_dialect_4_times.append(naive_latency)
         # NUM SEARCH
         start_set_time = time.time_ns()
-        response = client1.execute_command("FT.SEARCH " + TEST_INDEX_NUM + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT " + str(OFFSET) + " " + str(NUM))
+        response = client1.execute_command("FT.SEARCH " + TEST_INDEX_NUM + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID LIMIT " + str(OFFSET) + " " + str(NUM)+ " DIALECT 4" )
         end_set_time = time.time_ns()
         naive_latency = (end_set_time - start_set_time) // 1000
         num_search_dialect_4_times.append(naive_latency)
