@@ -165,7 +165,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 }
 
 void Start_View_Search_Handler(RedisModuleCtx *ctx) {
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_Main_Search_Handler called." );
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_View_Search_Handler called." );
     std::thread view_search_thread(View_Search_Handler, ctx);
     view_search_thread.detach();
 }

@@ -7,7 +7,7 @@
 #include "module_utils.h"
 
 
-int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
+int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
 
     Data_Handler &d_h = Data_Handler::getInstance();
@@ -34,20 +34,20 @@ int Main_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     return REDISMODULE_OK;
 }
 
-void Start_Main_Search_Handler(RedisModuleCtx *ctx) {
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_Main_Search_Handler called." );
-    std::thread main_search_thread(Main_Search_Handler, ctx);
+void Start_Search_Count_Handler(RedisModuleCtx *ctx) {
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Start_Search_Count_Handler called." );
+    std::thread main_search_thread(Search_Count_Handler, ctx);
     main_search_thread.detach();
 }
 
 
-void Main_Search_Handler(RedisModuleCtx *ctx) {
+void Search_Count_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
-        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler called." );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
         for(Client_Size_Info &info : d_h.client_size_info){
-            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Main_Search_Handler handling : " + info.stream_name );
+            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler handling : " + info.stream_name );
             long long size = 0;
             std::string index_and_query = "";
             int arg_index = 0;
@@ -57,7 +57,7 @@ void Main_Search_Handler(RedisModuleCtx *ctx) {
                     index_and_query += " ";
                 }
                 arg_index++;
-                //printf("Main_Search_Handler arg: %s\n", arg.c_str() );
+                //printf("Search_Count_Handler arg: %s\n", arg.c_str() );
             }
 
             std::vector<RedisModuleString*> arguments;
@@ -66,7 +66,7 @@ void Main_Search_Handler(RedisModuleCtx *ctx) {
             }
             
             RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
-            //printf("Main_Search_Handler reply : %d\n",RedisModule_CallReplyType(reply));
+            //printf("Search_Count_Handler reply : %d\n",RedisModule_CallReplyType(reply));
             if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Main_Search_RedisCommand failed." );
             } else {

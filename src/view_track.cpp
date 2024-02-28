@@ -51,10 +51,10 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.REGISTER command created successfully.");
     }
 
-    if (RedisModule_CreateCommand(ctx,"VIEW.MAIN.SEARCH", Main_Search_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+    if (RedisModule_CreateCommand(ctx,"VIEW.SEARCH.COUNT", Search_Count_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     } else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.MAIN.SEARCH command created successfully.");
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH.COUNT command created successfully.");
     }
 
     if (RedisModule_CreateCommand(ctx,"VIEW.SEARCH", View_Search_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
@@ -69,10 +69,10 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH.UNSUBSCRIBE command created successfully.");
     }
 
-    if (RedisModule_CreateCommand(ctx, "VIEW.SCROLL", Scroll_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+    if (RedisModule_CreateCommand(ctx, "VIEW.SEARCH.SCROLL", Scroll_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     } else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SCROLL command created successfully.");
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH.SCROLL command created successfully.");
     }
     
     // Set Global Search Dialect to 4
@@ -82,7 +82,7 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         return REDISMODULE_ERR;
     }
 
-    Start_Main_Search_Handler(rdts_staticCtx);
+    Start_Search_Count_Handler(rdts_staticCtx);
 
     Start_View_Search_Handler(rdts_staticCtx);
  

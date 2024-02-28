@@ -36,7 +36,7 @@ def generate_object(d, id, addr_id):
 def generate_single_object(id, addr_id, passport):
     d = {}
     d["User"] = {}
-    d["User"]["ID"] = str(id)
+    d["User"]["ID"] = id
     d["User"]["PASSPORT"] = passport
     d["User"]["Address"] = {}
     d["User"]["Address"]["ID"] = str(addr_id)
@@ -70,7 +70,7 @@ def add_list(r, data):
         count = count + 1
 
 def create_index(r):
-    schema = (TagField("$.User.ID", as_name="User.ID", sortable=True), TagField("$.User.PASSPORT", as_name="User.PASSPORT"),  \
+    schema = (NumericField("$.User.ID", as_name="User.ID", sortable=True), TagField("$.User.PASSPORT", as_name="User.PASSPORT"),  \
               TagField("$.User.Address.ID", as_name="User.Address.ID", sortable=True) )
     r.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[TEST_INDEX_PREFIX], index_type=IndexType.JSON))
 
