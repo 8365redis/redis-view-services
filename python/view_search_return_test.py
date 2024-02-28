@@ -135,7 +135,7 @@ def test_view_search_query_id():
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 
-    # ADD INITIAL DATAS
+    # ADD INITIAL DATA
     for i in range(5):
         d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
         key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
@@ -260,3 +260,27 @@ def test_view_search_return_sort_limit():
     response = client1.execute_command("FT.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3 DIALECT 1")
     print(str(response))
     
+
+
+def test_view_search_is_same_with_ft_search():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(30):
+        d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        producer.json().set(key, Path.root_path(), d)
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    view_search_response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3 ")
+    #print(str(view_search_response))
+    ft_search_response = client1.execute_command("FT.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3 ")
+    #print(str(ft_search_response))
+
+    del view_search_response[0]
+
+    assert view_search_response == ft_search_response

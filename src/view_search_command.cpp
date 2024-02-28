@@ -111,14 +111,21 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         }
     }
 
+    const int key_size = 1 ;
+    const int key_index = 0 ;
+    const int value_index = 3;
+    const int response_inner_array_length = 4;
+
     for (const auto& it : keys) {
-        if ( it.size() == 1){
+        if ( it.size() == key_size){
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
         }
         else {
-            RedisModule_ReplyWithArray(ctx , 2);
+            RedisModule_ReplyWithArray(ctx , response_inner_array_length);
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
         }
     }
 
@@ -127,15 +134,15 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     std::vector<std::string> view_new_keys;
     std::string key = "";
     for(auto vec : keys){
-        if(vec.size() == 1){ // Only key
-            key = vec.at(0);
+        if(vec.size() == key_size){ // Only key
+            key = vec.at(key_index);
             view_new_keys.push_back(key);
         } else {
             if(key.empty()){
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler Key is empty." );
                 continue;
             }
-            std::string value = vec.at(1); // It is hardcoded value for value itself
+            std::string value = vec.at(value_index); 
             if (!json::accept(value)){
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
             } else {
