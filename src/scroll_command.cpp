@@ -126,14 +126,21 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         }
     }
 
+    const int key_size = 1 ;
+    const int key_index = 0 ;
+    const int value_index = 3;
+    const int response_inner_array_length = 4;
+
     for (const auto& it : keys) {
-        if ( it.size() == 1){
+        if ( it.size() == key_size){
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
         }
         else {
-            RedisModule_ReplyWithArray(ctx , 2);
+            RedisModule_ReplyWithArray(ctx , response_inner_array_length);
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
             RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
+            RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
         }
     }
 
