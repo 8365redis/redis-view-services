@@ -196,6 +196,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Arguments : " + arg );
                 }
                 
+                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler calling FT.SEARCH with args : " + d_h.id_2_query[current_query_id] );
                 // Forward Search
                 RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.SEARCH", "v", arguments.begin(), arguments.size());
                 if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
@@ -234,21 +235,24 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 if(d_h.query_2_index.count(current_query_id) > 0 ) {
                     view_old_keys = d_h.query_2_index[current_query_id];
                 }
-                
+                const int key_size = 1 ;
+                const int key_index = 0 ;
+                const int value_index = 3;
+
                 //{key_id : json_value}
                 std::unordered_map<std::string, nlohmann::json> new_values;
                 std::vector<std::string> view_new_keys;
                 std::string key = "";
                 for(auto vec : keys){
-                    if(vec.size() == 1){ // Only key
-                        key = vec.at(0);
+                    if(vec.size() == key_size){ // Only key
+                        key = vec.at(key_index);
                         view_new_keys.push_back(key);
                     } else {
                         if(key.empty()){
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler Key is empty." );
                             continue;
                         }
-                        std::string value = vec.at(1); // It is hardcoded value for value itself
+                        std::string value = vec.at(value_index); // It is hardcoded value for value itself
                         if (!json::accept(value)){
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
                         } else {
@@ -273,11 +277,11 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     if(!new_key.empty()) {
                         new_value = new_values[new_key];
                     }
-                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
-                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
                     if(!new_key.empty() && !old_key.empty()) {
                         if(new_value != old_value) {
-                            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
+                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
                             View_Diff current_diff;
                             current_diff.index = diff_index;
                             current_diff.old_key = old_key;
@@ -287,6 +291,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             current_diff.operation = "UPDATE";
                             current_diff.diff = json::diff(old_value, new_value);
                             diff_values.push_back(current_diff);
+                        }else {
+                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are same" );
                         }
                     } else if( new_key.empty() && !old_key.empty()) { // Some keys are deleted
                         View_Diff current_diff;

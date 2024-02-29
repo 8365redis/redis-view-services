@@ -13,7 +13,7 @@ def before_and_after_test():
     print("End")
 
 def test_view_search_stream_write_new_start_single():
-    producer = connect_redis_with_start()
+    producer = connect_redis()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 
@@ -26,26 +26,27 @@ def test_view_search_stream_write_new_start_single():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 1")
- 
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 1")
+    print("VIEW.SEARCH RESPONSE : " + str(response))
+
     time.sleep(1.1)
     
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    print(str(from_stream))
+    print("STREAM : " + str(from_stream))
 
     # TRIM STREAM
     client1.xtrim(cct_prepare.TEST_APP_NAME_1 , 0)
 
     # CHECK STREAM AFTER TRIM 
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    print(str(from_stream))
+    print("STREAM AFTER TRIM: " + str(from_stream))
 
     time.sleep(1.1)
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    print(str(from_stream))
+    print("STREAM AFTER TRIM and DELAY: " + str(from_stream))
 
 def test_view_search_stream_write_update_single():
     producer = connect_redis_with_start()
