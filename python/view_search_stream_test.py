@@ -18,7 +18,7 @@ def test_view_search_stream_write_new_start_single():
     cct_prepare.create_index(producer)
 
     # ADD INITIAL DATA
-    for i in range(3):
+    for i in range(10):
         d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
         key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
         producer.json().set(key, Path.root_path(), d)
@@ -26,7 +26,7 @@ def test_view_search_stream_write_new_start_single():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
+    client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 1")
  
     time.sleep(1.1)
     
