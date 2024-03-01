@@ -30,6 +30,8 @@ public:
     std::unordered_map<long long int, std::vector<std::string>> query_2_index; // Query is query id, index of keys in 
     std::unordered_map<long long int, std::string> id_2_query; // ID : QUERY,  Query is string
     std::set<long long int> unsub_wait_list;
+    std::set<std::string> unreg_wait_list;
+    std::set<std::string> registered_clients; 
     std::vector<std::tuple<long long int, long long int, long long int>> scroll_wait_list;
 };
 

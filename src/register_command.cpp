@@ -1,24 +1,20 @@
 #include "register_command.h"
 #include "logger.h"
+#include "module_data_handler.h"
 
 int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
     RedisModule_AutoMemory(ctx);
+
+    Data_Handler &d_h = Data_Handler::getInstance();
+
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Register_RedisCommand called." );
     if (argc < 2  || argc > 3) {
         return RedisModule_WrongArity(ctx);
     }
 
-    unsigned long long client_query_ttl = 0;
-    if (argc == 3) {
-        RedisModuleString *client_query_ttl_str = argv[2];
-        if(RedisModule_StringToULongLong(client_query_ttl_str, &client_query_ttl) == REDISMODULE_ERR ) {
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to set client query TTL. Invalid TTL value." );
-            return RedisModule_ReplyWithError(ctx, strerror(errno));
-        }
-    }
-
     // Get Client ID
     RedisModuleString *client_name = argv[1];
+    std::string client_name_str = RedisModule_StringPtrLen(client_name, NULL);
     unsigned long long client_id = RedisModule_GetClientId(ctx);
     
     // Set client name
@@ -49,5 +45,9 @@ int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
     }
     RedisModule_StreamTrimByLength(stream_key, 0, 0);  // Clear the stream
     RedisModule_ReplyWithSimpleString(ctx, "OK");
+
+    //UPDATE GLOBAL
+    d_h.registered_clients.insert(client_name_str);
+
     return REDISMODULE_OK;
 }

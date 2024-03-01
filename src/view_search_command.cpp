@@ -353,6 +353,17 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             }     
         }
 
+        // Unregister Clients
+        for (auto &unreg_client : d_h.unreg_wait_list) {
+            if(d_h.client_2_query.count(unreg_client) > 0) {
+                for (auto &id_2_query : d_h.client_2_query[unreg_client]) {
+                    d_h.unsub_wait_list.insert(id_2_query.first); // For queries add them to unsubscribe
+                }
+            }
+            d_h.client_2_query.erase(unreg_client);
+        }
+        d_h.unreg_wait_list.clear();
+
         // Unsubscribe queries
         for (auto &unsub_id : d_h.unsub_wait_list) {
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );

@@ -66,26 +66,26 @@ def before_and_after_test():
 
 def test_different_index_dialect_perf():
     producer = connect_redis_with_start()
-    #flush_db(producer) # clean all db first
+    flush_db(producer) # clean all db first
     
-    time.sleep(30)
+    time.sleep(3)
 
     response = producer.execute_command("ft.config set default_dialect 4")
     response = producer.execute_command("ft.config get default_dialect")
     print("Current DIALECT : " + str(response))
 
-    TOTAL_KEY_COUNT = 500000
+    TOTAL_KEY_COUNT = 1000
     OFFSET = random.randint(0 , TOTAL_KEY_COUNT)
     NUM =  random.randint(50 , 100)
 
-    response = producer.execute_command("FT.CONFIG SET MAXSEARCHRESULTS " + str(TOTAL_KEY_COUNT))
+    #response = producer.execute_command("FT.CONFIG SET MAXSEARCHRESULTS " + str(TOTAL_KEY_COUNT))
     #response = producer.execute_command("FT.CONFIG SET TIMEOUT  " + str(5000) )
 
     print("Current OFFSET : " + str(OFFSET))
     print("Current NUM : " + str(NUM))
 
     
-    '''
+    
     #####################################################
     # FIRST TAG
     prod1 = connect_redis()
@@ -115,7 +115,7 @@ def test_different_index_dialect_perf():
         d = generate_single_object_as_num(random.randint(0 , TOTAL_KEY_COUNT) , random.randint(0 , TOTAL_KEY_COUNT), "aaa")
         key = TEST_INDEX_NUM_PREFIX + str(i)
         prod3.json().set(key, Path.root_path(), d)
-    '''
+    
     # FIRST CLIENT
     client1 = connect_redis()
 
