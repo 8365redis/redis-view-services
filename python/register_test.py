@@ -41,3 +41,7 @@ def test_re_register():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     assert response == "OK"
+
+    with pytest.raises(Exception) as e_info:
+        response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    assert "ResponseError" in str(e_info)

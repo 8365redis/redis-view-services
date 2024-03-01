@@ -16,6 +16,11 @@ int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
     RedisModuleString *client_name = argv[1];
     std::string client_name_str = RedisModule_StringPtrLen(client_name, NULL);
     unsigned long long client_id = RedisModule_GetClientId(ctx);
+
+    if(d_h.registered_clients.count(client_name_str) > 0 ) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed , client is already registered." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));       
+    }
     
     // Set client name
     if (RedisModule_SetClientNameById(client_id, client_name) != REDISMODULE_OK){
