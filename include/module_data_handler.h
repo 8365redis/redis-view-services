@@ -29,6 +29,7 @@ public:
     std::unordered_map<long long int, std::unordered_map<std::string, json>> query_2_value; // Query is query id
     std::unordered_map<long long int, std::vector<std::string>> query_2_index; // Query is query id, index of keys in 
     std::unordered_map<long long int, std::string> id_2_query; // ID : QUERY,  Query is string
+    std::unordered_map<std::string, unsigned long long> client_2_last_seen; // client to last seen in ms
     std::set<long long int> unsub_wait_list;
     std::set<std::string> unreg_wait_list;
     std::set<std::string> registered_clients; 

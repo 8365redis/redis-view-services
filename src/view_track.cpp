@@ -10,9 +10,12 @@
 #include "module_constants.h"
 #include "module_utils.h"
 #include "register_command.h"
+#include "unregister_command.h"
 #include "main_search_command.h"
 #include "unsubscribe_command.h"
 #include "scroll_command.h"
+#include "heartbeat_command.h"
+#include "client_tracker.h"
 
 #ifndef CCT_MODULE_VERSION
 #define CCT_MODULE_VERSION "unknown"
@@ -45,10 +48,16 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
 
     rdts_staticCtx = RedisModule_GetDetachedThreadSafeContext(ctx);
 
-    if (RedisModule_CreateCommand(ctx,"VIEW.REGISTER", Register_RedisCommand , "admin write", 0, 0, 0) == REDISMODULE_ERR) {
+    if (RedisModule_CreateCommand(ctx,"VIEW.REGISTER", Register_RedisCommand , "write", 0, 0, 0) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.REGISTER command created successfully.");
+    }
+
+    if (RedisModule_CreateCommand(ctx,"VIEW.UNREGISTER", UnRegister_RedisCommand , "write", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.UNREGISTER command created successfully.");
     }
 
     if (RedisModule_CreateCommand(ctx,"VIEW.SEARCH.COUNT", Search_Count_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
@@ -74,6 +83,12 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH.SCROLL command created successfully.");
     }
+
+    if (RedisModule_CreateCommand(ctx, "VIEW.HEARTBEAT", Heartbeat_RedisCommand , "write", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.HEARTBEAT command created successfully.");
+    }
     
     // Set Global Search Dialect to 4
     RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.CONFIG", "ccc", "SET", "DEFAULT_DIALECT", std::to_string(DEFAULT_DIALECT).c_str());
@@ -85,7 +100,15 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     Start_Search_Count_Handler(rdts_staticCtx);
 
     Start_View_Search_Handler(rdts_staticCtx);
+
+    Start_Client_Handler(rdts_staticCtx);
  
+    if (RedisModule_SubscribeToServerEvent(ctx, RedisModuleEvent_ClientChange,
+                                             Handle_Client_Event) != REDISMODULE_OK) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad failed to SubscribeToServerEvent for RedisModuleEvent_ClientChange." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
+    }
+
     return REDISMODULE_OK;
 }
 

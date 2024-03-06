@@ -51,8 +51,15 @@ int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
     RedisModule_StreamTrimByLength(stream_key, 0, 0);  // Clear the stream
     RedisModule_ReplyWithSimpleString(ctx, "OK");
 
-    //UPDATE GLOBAL
+    //UPDATE GLOBAL REGISTERED
     d_h.registered_clients.insert(client_name_str);
+    //UPDATE GLOBAL LAST SEEN
+    auto now = std::chrono::system_clock::now();
+    auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+    unsigned long long ms_value = ms.count();
+    d_h.client_2_last_seen[client_name_str] = ms_value;
+
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Register_RedisCommand succesfull for client id: " +  std::to_string(client_id) + " , client name : " + client_name_str + " , last seen : " + std::to_string(ms_value));
 
     return REDISMODULE_OK;
 }

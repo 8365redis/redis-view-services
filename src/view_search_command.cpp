@@ -361,6 +361,15 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
             d_h.client_2_query.erase(unreg_client);
+
+            // Check if the stream exists for this client
+            RedisModuleString* unreg_client_stream_name = RedisModule_CreateString(ctx, unreg_client.c_str(), unreg_client.length());
+            if( RedisModule_KeyExists(ctx, unreg_client_stream_name) ) { // NOT checking if it is stream
+                RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, unreg_client_stream_name, REDISMODULE_WRITE);
+                if (RedisModule_DeleteKey(stream_key) != REDISMODULE_OK ) {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Unregister failed to delete the stream." ); // Rollback ?
+                }
+            }
         }
         d_h.unreg_wait_list.clear();
 
