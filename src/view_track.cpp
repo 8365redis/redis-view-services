@@ -16,9 +16,10 @@
 #include "scroll_command.h"
 #include "heartbeat_command.h"
 #include "client_tracker.h"
+#include "version.h"
 
-#ifndef CCT_MODULE_VERSION
-#define CCT_MODULE_VERSION "unknown"
+#ifndef VIEW_MODULE_VERSION
+#define VIEW_MODULE_VERSION "unknown"
 #endif
 
 using json = nlohmann::json;
@@ -32,8 +33,9 @@ static RedisModuleCtx *rdts_staticCtx;
 
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
 
-    const char* version_string = { CCT_MODULE_VERSION " compiled at " __TIME__ " "  __DATE__  };
-    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "CCT_MODULE_VERSION : " + std::string(version_string));
+    int version_int = Get_Module_Version(VIEW_MODULE_VERSION);
+    const char* version_string = { VIEW_MODULE_VERSION " compiled at " __TIME__ " "  __DATE__  };
+    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "VIEW_MODULE_VERSION : " + std::string(version_string));
 
     #ifdef _DEBUG
     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "THIS IS A DEBUG BUILD." );
@@ -42,7 +44,7 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "THIS IS A RELEASE BUILD." );
     #endif 
 
-    if (RedisModule_Init(ctx, "CCT-VIEW", 1, REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
+    if (RedisModule_Init(ctx, "VIEW.SEARCH", version_int, REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     }
 
