@@ -113,20 +113,32 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
     const int key_size = 1 ;
     const int key_index = 0 ;
-    const int value_index = 3;
-    const int response_inner_array_length = 4;
+    const int value_index_short = 1;
+    const int value_index_long = 3;
+    int value_index = -1;
+    const int response_inner_array_length_long = 4;
+    const int response_inner_array_length_short = 2;
+    int real_inner_size = -1;
 
     for (const auto& it : keys) {
-        if ( it.size() == key_size){
+        real_inner_size = it.size();
+        if ( real_inner_size == key_size){
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
         }
         else {
-            RedisModule_ReplyWithArray(ctx , response_inner_array_length);
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
+            RedisModule_ReplyWithArray(ctx , real_inner_size);
+            for(int i = 0 ; i < real_inner_size; i ++) {
+                RedisModule_ReplyWithStringBuffer(ctx, it.at(i).c_str(), strlen(it.at(i).c_str()));
+            }
+
+
         }
+    }
+
+    if(real_inner_size == response_inner_array_length_long){
+        value_index = value_index_long;
+    } else {
+        value_index = value_index_short;
     }
 
     //{key_id : json_value}
@@ -237,7 +249,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
                 const int key_size = 1 ;
                 const int key_index = 0 ;
-                const int value_index = 3;
+                const int value_index_long = 3;
+                const int value_index_short = 1;
 
                 //{key_id : json_value}
                 std::unordered_map<std::string, nlohmann::json> new_values;
@@ -252,7 +265,13 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler Key is empty." );
                             continue;
                         }
-                        std::string value = vec.at(value_index); // It is hardcoded value for value itself
+                        std::string value;
+                        if(vec.size() == 4){
+                            value = vec.at(value_index_long); // It is hardcoded value for value itself
+                        } else {
+                            value = vec.at(value_index_short); // It is hardcoded value for value itself
+                        }
+                        
                         if (!json::accept(value)){
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
                         } else {

@@ -284,3 +284,24 @@ def test_view_search_is_same_with_ft_search():
     del view_search_response[0]
 
     assert view_search_response == ft_search_response
+
+def test_view_search_return_multi_with_wrong_sortby():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATAS
+    for i in range(10):
+        d = cct_prepare.generate_single_object(1000 , 2000 + i, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        producer.json().set(key, Path.root_path(), d)
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID_SORTBY LIMIT 0 10" )
+
+    query_id = int(response[0])
+    assert query_id == 0
+    response_size = int((len(response)-2)/2)
+    assert response_size == 10
