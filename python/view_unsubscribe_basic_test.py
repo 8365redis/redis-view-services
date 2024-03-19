@@ -76,3 +76,45 @@ def test_single_client_single_query_unsubscribe():
 
 
 
+def test_single_client_single_query_unsubscribe_with_wrong_sortby():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(10):
+        d = cct_prepare.generate_single_object(1000 + i , 2000 , "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        producer.json().set(key, Path.root_path(), d)
+
+    query_id = 0
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID ASC LIMIT 0 10")
+    print("VIEW.SEARCH response : " + str(result))
+    assert query_id ==  result[0]
+
+    # CHECK STREAM
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    print("FIRST STREAM : " + str(from_stream))
+    #TRIM STREAM
+    client1.xtrim(cct_prepare.TEST_APP_NAME_1 , 0)
+    #CHECK STREAM AFTER TRIM 
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    print("AFTER TRIM STREAM : " +  str(from_stream))
+
+    result = client1.execute_command("VIEW.SEARCH.UNSUBSCRIBE " +  str(query_id))
+    print("VIEW.SEARCH.UNSUBSCRIBE response : " +  str(result))
+
+    #UPDATE DATA 
+    d = cct_prepare.generate_single_object(1002  , 2000, "aaa")
+    key = cct_prepare.TEST_INDEX_PREFIX + str(1)
+    producer.json().set(key, Path.root_path(), d)
+
+    time.sleep(1.1)
+
+    # CHECK STREAM
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    print("AFTER UPDATE and UNSUBSCRIBE STREAM : " + str(from_stream))

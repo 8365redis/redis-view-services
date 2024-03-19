@@ -60,3 +60,30 @@ def test_view_scroll_and_search_same_format():
 
     response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(0) + " 10 20")
     print(str(response))
+
+
+def test_view_scroll_return_non_existing_query():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATAS
+    for i in range(20):
+        d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID DESC LIMIT 0 3")
+    print("\nVIEW.SEARCH RESPONSE : " + str(response))
+
+    query_id = int(response[0])
+    assert query_id == 0
+    response_size = int((len(response)-2)/2)
+    assert response_size == 3
+
+    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(query_id+1) + " 10 3")
+    print("\nVIEW.SEARCH.SCROLL RESPONSE : " +str(response))

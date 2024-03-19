@@ -40,7 +40,7 @@ def test_view_search_return_multi():
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 
-    # ADD INITIAL DATAS
+    # ADD INITIAL DATA
     for i in range(10):
         d = cct_prepare.generate_single_object(1000 , 2000 + i, "aaa")
         key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)

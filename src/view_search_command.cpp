@@ -130,8 +130,6 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             for(int i = 0 ; i < real_inner_size; i ++) {
                 RedisModule_ReplyWithStringBuffer(ctx, it.at(i).c_str(), strlen(it.at(i).c_str()));
             }
-
-
         }
     }
 
