@@ -30,6 +30,7 @@ public:
     std::unordered_map<long long int, std::vector<std::string>> query_2_index; // Query is query id, index of keys in 
     std::unordered_map<long long int, std::string> id_2_query; // ID : QUERY,  Query is string
     std::unordered_map<std::string, unsigned long long> client_2_last_seen; // client to last seen in ms
+    std::unordered_map<std::string, std::string> index_attribute_2_type; // for example a.b = TAG , a.c = TEXT , a.c.d = NUMERIC
     std::set<long long int> unsub_wait_list;
     std::set<std::string> unreg_wait_list;
     std::set<std::string> registered_clients; 

@@ -31,6 +31,189 @@ public:
     };
 };
 
+/*
+Example :
+
+127.0.0.1:6379> ft.info test_index
+ 1) index_name
+ 2) test_index
+ 3) index_options
+ 4) (empty array)
+ 5) index_definition
+ 6) 1) key_type
+    2) JSON
+    3) prefixes
+    4) 1) test_data:
+    5) default_score
+    6) "1"
+ 7) attributes
+ 8) 1) 1) identifier
+       2) $.User.ID
+       3) attribute
+       4) User.ID
+       5) type
+       6) NUMERIC
+       7) SORTABLE
+       8) UNF
+    2) 1) identifier
+       2) $.User.PASSPORT
+       3) attribute
+       4) User.PASSPORT
+       5) type
+       6) TAG
+       7) SEPARATOR
+       8) ,
+    3)  1) identifier
+        2) $.User.Address.ID
+        3) attribute
+        4) User.Address.ID
+        5) type
+        6) TAG
+        7) SEPARATOR
+        8) ,
+        9) SORTABLE
+       10) UNF
+ 9) num_docs
+10) "1"
+11) max_doc_id
+
+*/
+
+bool NeedToAddDialect1(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
+
+    Data_Handler &d_h = Data_Handler::getInstance();
+
+    //printf("Index name: %s\n", index_name.c_str()); // Debug print
+    //printf("Sortby arg: %s\n", sortby_arg.c_str()); // Debug print
+    sortby_arg = "$." + sortby_arg;
+
+    std::string type_key = index_name + "-" + sortby_arg;
+    if(d_h.index_attribute_2_type.count(type_key) > 0) {
+        //printf("Type key : %s found in cache\n", type_key.c_str()); // Debug print
+        if(d_h.index_attribute_2_type[type_key] == "NUMERIC") {
+            return false;
+        }
+        return true;
+    }
+
+    RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.INFO", "c", index_name.c_str());
+    if (reply == NULL || RedisModule_CallReplyType(reply) == REDISMODULE_REPLY_ERROR) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info failed. Call failed." );
+        return false;
+    }
+
+    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info failed. Not array." );
+        return false;
+    }
+
+    const size_t reply_length = RedisModule_CallReplyLength(reply);
+    //printf("Reply length: %zu\n", reply_length); // Debug print
+
+    RedisModuleCallReply *attributes_reply = NULL;
+    const char *specific_identifier = sortby_arg.c_str() ; 
+    //printf("Specific identifier : %s\n", specific_identifier); // Debug print
+
+    // Find the "attributes" section
+    for (size_t i = 0; i < reply_length; i++) {
+        RedisModuleCallReply *key_reply = RedisModule_CallReplyArrayElement(reply, i);
+        
+        if (RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_STRING){
+            RedisModuleString *response = RedisModule_CreateStringFromCallReply(key_reply);
+            const char *key_str = RedisModule_StringPtrLen(response, NULL);
+            if(key_str == nullptr){
+                continue;
+            }
+            if (strcmp(key_str, "attributes") == 0) {
+                attributes_reply = RedisModule_CallReplyArrayElement(reply, i + 1);
+                break;
+            }
+        }
+    }
+
+    if (attributes_reply == NULL) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info doesn't have attributes." );
+        return false;
+    }
+
+    if (RedisModule_CallReplyType(attributes_reply) != REDISMODULE_REPLY_ARRAY) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info attributes failed. Not array." );
+        return false;
+    }
+
+    // Process the "attributes" section
+    const size_t attributes_length = RedisModule_CallReplyLength(attributes_reply);
+    //printf("Attributes length: %zu\n", attributes_length); // Debug print
+
+    bool attribute_found = false;
+    bool attribute_type_is_not_numeric = false;
+
+    for (size_t i = 0; i < attributes_length; i++) {
+        RedisModuleCallReply *attribute_inner_reply = RedisModule_CallReplyArrayElement(attributes_reply, i);
+        if (RedisModule_CallReplyType(attribute_inner_reply) != REDISMODULE_REPLY_ARRAY) {
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info attributes inner failed. Not array." );
+            return false;
+        }
+        const size_t attribute_inner_length = RedisModule_CallReplyLength(attribute_inner_reply);
+        //printf("Attributes inner length: %zu\n", attribute_inner_length); // Debug print
+
+
+        // Check if the attribute is the specific identifier
+        RedisModuleCallReply *identifier_reply = RedisModule_CallReplyArrayElement(attribute_inner_reply, 1); // 1 is the index of the identifier value
+        if (RedisModule_CallReplyType(identifier_reply) == REDISMODULE_REPLY_STRING) {
+            RedisModuleString *identifier_response = RedisModule_CreateStringFromCallReply(identifier_reply);
+            const char *identifier_str = RedisModule_StringPtrLen(identifier_response, NULL);
+            //printf("Identifier: %s\n", identifier_str); // Debug print
+            if (strcmp(identifier_str, specific_identifier) != 0) {
+                continue;
+            } else {
+                attribute_found = true;
+            }
+        } else {
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info attributes (for only one) inner identifier failed. Not string. Continue with others." );
+            continue;
+        }
+
+        const char *type = NULL;
+
+        // Find the "type" key within the attribute
+        for (size_t j = 0; j < attribute_inner_length; j++) {
+            RedisModuleCallReply *attribute_inner_reply_item = RedisModule_CallReplyArrayElement(attribute_inner_reply, j);
+            RedisModuleString *attribute_inner_reply_item_str = RedisModule_CreateStringFromCallReply(attribute_inner_reply_item);
+            const char *inner_reply_item_str = RedisModule_StringPtrLen(attribute_inner_reply_item_str, NULL);
+
+            if (strcmp(inner_reply_item_str, "type") == 0) {
+                RedisModuleCallReply *type_reply = RedisModule_CallReplyArrayElement(attribute_inner_reply, j + 1);
+                RedisModuleString *type_reply_str = RedisModule_CreateStringFromCallReply(type_reply);
+                type = RedisModule_StringPtrLen(type_reply_str, NULL);
+                //printf("Type: %s\n", type); // Debug print
+                break;
+            }
+        }
+
+        if (type != NULL)  {
+            if (  !strcmp(type, "NUMERIC") == 0){
+                attribute_type_is_not_numeric = true;
+                //printf("Attribute with key : %s is not NUMERIC \n", type_key.c_str()); // Debug print
+            } //else {
+                //printf("Attribute with key : %s is NUMERIC \n", type_key.c_str()); // Debug print
+            //}
+            d_h.index_attribute_2_type[type_key] = type;
+            break;
+        }
+
+    }
+
+    if(attribute_found == false) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info attribute with given identifier not found." );
+    } else if(attribute_type_is_not_numeric == true) {
+        //printf("Attribute with key : %s returning true \n", type_key.c_str()); // Debug print
+        return true;
+    }
+
+    return false;
+}
+
 int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
 
@@ -41,17 +224,37 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     std::vector<RedisModuleString*> arguments_redis_string_vector(argv+1, argv + argc);
     std::vector<std::string> arguments_string_vector;
     bool limit_arg_found = false;
-    for(RedisModuleString* arg : arguments_redis_string_vector) {
-        std::string arg_str = RedisModule_StringPtrLen(arg, NULL);
+    bool sortby_arg_found = false;
+    std::string limit_arg = "";
+    for(int i = 0; i < arguments_redis_string_vector.size(); i++) {
+        std::string arg_str = RedisModule_StringPtrLen(arguments_redis_string_vector[i], NULL);
         if (limit_arg_found == false && arg_str == "LIMIT") {
             limit_arg_found = true;
+        }
+        if (sortby_arg_found == false && arg_str == "SORTBY") {
+            sortby_arg_found = true;
+            if(i+1 < arguments_redis_string_vector.size()){
+                limit_arg = RedisModule_StringPtrLen(arguments_redis_string_vector[i+1], NULL);
+            }
         }
         arguments_string_vector.push_back(arg_str);
     }
 
+    if(sortby_arg_found == false && limit_arg.empty()){
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand query doesn't have SORTBY argument." );
+        return RedisModule_ReplyWithError(ctx,"No Sortby arg");        
+    }
+
+    bool needToAddDialect1 = NeedToAddDialect1(ctx, arguments_string_vector[0], limit_arg);
+    if (needToAddDialect1) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 1." );
+        arguments_string_vector.push_back("DIALECT");
+        arguments_string_vector.push_back("1");
+    }
+
     if(limit_arg_found == false) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand query doesn't have LIMIT argument." );
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
+        return RedisModule_ReplyWithError(ctx, "No Limit arg");
     }
 
     std::string arguments_string = "";
@@ -67,9 +270,17 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     Print_Status(ctx, "Starting View_Search_RedisCommand");
     
     // Forward Search
-    RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.SEARCH", "v", argv + 1, argc - 1);
-    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
+    RedisModuleCallReply *reply = NULL;
+    if (needToAddDialect1) {
+        reply = RedisModule_Call(ctx, "FT.SEARCH", "vcc", argv + 1, argc - 1, "DIALECT", "1");
+        if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
+            return RedisModule_ReplyWithError(ctx, strerror(errno));
+        }
+    } else {
+        reply = RedisModule_Call(ctx, "FT.SEARCH", "v", argv + 1, argc - 1);
+        if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
+            return RedisModule_ReplyWithError(ctx, strerror(errno));
+        }        
     }
 
     // Parse Search Result
