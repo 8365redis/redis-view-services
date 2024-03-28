@@ -77,7 +77,7 @@ def test_view_scroll_return_non_existing_query():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID DESC LIMIT 0 3 DIALECT 4")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     query_id = int(response[0])
@@ -85,5 +85,7 @@ def test_view_scroll_return_non_existing_query():
     response_size = int((len(response)-2)/2)
     assert response_size == 3
 
-    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(query_id+1) + " 10 3")
+    with pytest.raises(Exception) as e_info:
+        response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(query_id+1) + " 10 3")
+    assert "ResponseError" in str(e_info)
     print("\nVIEW.SEARCH.SCROLL RESPONSE : " +str(response))

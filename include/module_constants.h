@@ -13,6 +13,7 @@ using json = nlohmann::json;
 typedef struct  {
     std::string stream_name;
     std::vector<std::string> arguments;
+    long long int count;
 } Client_Size_Info;
 
 static long long int LAST_VIEW_SEARCH_IDENTIFIER = 0;

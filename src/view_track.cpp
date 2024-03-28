@@ -11,7 +11,7 @@
 #include "module_utils.h"
 #include "register_command.h"
 #include "unregister_command.h"
-#include "main_search_command.h"
+#include "view_count_command.h"
 #include "unsubscribe_command.h"
 #include "scroll_command.h"
 #include "heartbeat_command.h"
@@ -92,13 +92,6 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.HEARTBEAT command created successfully.");
     }
     
-    // Set Global Search Dialect to 4
-    RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.CONFIG", "ccc", "SET", "DEFAULT_DIALECT", std::to_string(DEFAULT_DIALECT).c_str());
-    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_STRING) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Setting Global Dialect Failed." );
-        return REDISMODULE_ERR;
-    }
-
     Start_Search_Count_Handler(rdts_staticCtx);
 
     Start_View_Search_Handler(rdts_staticCtx);

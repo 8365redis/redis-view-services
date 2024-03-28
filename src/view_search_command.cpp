@@ -79,7 +79,7 @@ Example :
 
 */
 
-bool NeedToAddDialect1(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
+bool NeedToAddDialect4(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
 
     Data_Handler &d_h = Data_Handler::getInstance();
 
@@ -91,9 +91,9 @@ bool NeedToAddDialect1(RedisModuleCtx *ctx, std::string index_name, std::string 
     if(d_h.index_attribute_2_type.count(type_key) > 0) {
         //printf("Type key : %s found in cache\n", type_key.c_str()); // Debug print
         if(d_h.index_attribute_2_type[type_key] == "NUMERIC") {
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
     RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.INFO", "c", index_name.c_str());
@@ -146,7 +146,7 @@ bool NeedToAddDialect1(RedisModuleCtx *ctx, std::string index_name, std::string 
     //printf("Attributes length: %zu\n", attributes_length); // Debug print
 
     bool attribute_found = false;
-    bool attribute_type_is_not_numeric = false;
+    bool attribute_type_is_numeric = false;
 
     for (size_t i = 0; i < attributes_length; i++) {
         RedisModuleCallReply *attribute_inner_reply = RedisModule_CallReplyArrayElement(attributes_reply, i);
@@ -192,8 +192,8 @@ bool NeedToAddDialect1(RedisModuleCtx *ctx, std::string index_name, std::string 
         }
 
         if (type != NULL)  {
-            if (  !strcmp(type, "NUMERIC") == 0){
-                attribute_type_is_not_numeric = true;
+            if (  strcmp(type, "NUMERIC") == 0){
+                attribute_type_is_numeric = true;
                 //printf("Attribute with key : %s is not NUMERIC \n", type_key.c_str()); // Debug print
             } //else {
                 //printf("Attribute with key : %s is NUMERIC \n", type_key.c_str()); // Debug print
@@ -206,7 +206,7 @@ bool NeedToAddDialect1(RedisModuleCtx *ctx, std::string index_name, std::string 
 
     if(attribute_found == false) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Query check for tag has failed with ft.info attribute with given identifier not found." );
-    } else if(attribute_type_is_not_numeric == true) {
+    } else if(attribute_type_is_numeric == true) {
         //printf("Attribute with key : %s returning true \n", type_key.c_str()); // Debug print
         return true;
     }
@@ -245,11 +245,11 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         return RedisModule_ReplyWithError(ctx,"No Sortby arg");        
     }
 
-    bool needToAddDialect1 = NeedToAddDialect1(ctx, arguments_string_vector[0], limit_arg);
-    if (needToAddDialect1) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 1." );
+    bool needToAddDialect4 = NeedToAddDialect4(ctx, arguments_string_vector[0], limit_arg);
+    if (needToAddDialect4) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 4." );
         arguments_string_vector.push_back("DIALECT");
-        arguments_string_vector.push_back("1");
+        arguments_string_vector.push_back("4");
     }
 
     if(limit_arg_found == false) {
@@ -271,8 +271,8 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     
     // Forward Search
     RedisModuleCallReply *reply = NULL;
-    if (needToAddDialect1) {
-        reply = RedisModule_Call(ctx, "FT.SEARCH", "vcc", argv + 1, argc - 1, "DIALECT", "1");
+    if (needToAddDialect4) {
+        reply = RedisModule_Call(ctx, "FT.SEARCH", "vcc", argv + 1, argc - 1, "DIALECT", "4");
         if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
             return RedisModule_ReplyWithError(ctx, strerror(errno));
         }

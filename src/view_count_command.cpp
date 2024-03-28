@@ -21,7 +21,6 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     for(RedisModuleString* arg : arguments){
         arguments_arg.push_back(RedisModule_StringPtrLen(arg, NULL));
     }
-    
 
     Client_Size_Info info;
     info.stream_name = Get_Client_Name(ctx);
@@ -29,8 +28,22 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
 
     d_h.client_size_info.push_back(info);
     //printf("CLIENT_SIZE_INFO size : %lu\n",CLIENT_SIZE_INFO.size());
-    
-    RedisModule_ReplyWithSimpleString(ctx, "OK");
+
+    long long int current_count = 0;
+    RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
+    if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed." );
+    } else {
+        RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
+        if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
+            current_count = RedisModule_CallReplyInteger(key_int_reply);
+            LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "Search_Count_RedisCommand get size : " + std::to_string(current_count));
+        }else {
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed to get reply current_count.");
+        }
+    }
+
+    RedisModule_ReplyWithLongLong(ctx, current_count);
     return REDISMODULE_OK;
 }
 
@@ -48,7 +61,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
         RedisModule_ThreadSafeContextLock(ctx);
         for(Client_Size_Info &info : d_h.client_size_info){
             //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler handling : " + info.stream_name );
-            long long size = 0;
+            long long int current_count = 0;
             std::string index_and_query = "";
             int arg_index = 0;
             for(std::string arg : info.arguments){
@@ -68,28 +81,32 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
             RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
             //printf("Search_Count_Handler reply : %d\n",RedisModule_CallReplyType(reply));
             if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Main_Search_RedisCommand failed." );
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand Handler failed." );
             } else {
                 RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
                 if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
-                    size = RedisModule_CallReplyInteger(key_int_reply);
+                    current_count = RedisModule_CallReplyInteger(key_int_reply);
+                    LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "Search_Count_RedisCommand Handler get size : " + std::to_string(current_count)  + " for query : " + index_and_query);
                 }else {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Main_Search_RedisCommand failed to get reply size." );
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand Handler failed to get reply current_count." );
                 }
             }
 
-            RedisModuleString* client_name = RedisModule_CreateString(ctx, info.stream_name.c_str(), info.stream_name.length());
-            RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
-            RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * 4);
-            xadd_params[0] = RedisModule_CreateString(ctx,"INDEX_QUERY", strlen("INDEX_QUERY"));
-            xadd_params[1] = RedisModule_CreateString(ctx, index_and_query.c_str(), index_and_query.length());
-            xadd_params[2] = RedisModule_CreateString(ctx, "LENGTH", strlen("LENGTH"));
-            std::string size_str = std::to_string(size);
-            xadd_params[3] = RedisModule_CreateString(ctx, size_str.c_str(), size_str.length());
-            int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, 2);
-            if (stream_add_resp != REDISMODULE_OK) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Register_RedisCommand failed to create the stream." );
+            if(info.count != current_count) {
+                RedisModuleString* client_name = RedisModule_CreateString(ctx, info.stream_name.c_str(), info.stream_name.length());
+                RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
+                RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * 4);
+                xadd_params[0] = RedisModule_CreateString(ctx,"INDEX_QUERY", strlen("INDEX_QUERY"));
+                xadd_params[1] = RedisModule_CreateString(ctx, index_and_query.c_str(), index_and_query.length());
+                xadd_params[2] = RedisModule_CreateString(ctx, "LENGTH", strlen("LENGTH"));
+                std::string size_str = std::to_string(current_count);
+                xadd_params[3] = RedisModule_CreateString(ctx, size_str.c_str(), size_str.length());
+                int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, 2);
+                if (stream_add_resp != REDISMODULE_OK) {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed to create the stream." );
+                }
             }
+            info.count = current_count;
         }
         RedisModule_ThreadSafeContextUnlock(ctx);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
