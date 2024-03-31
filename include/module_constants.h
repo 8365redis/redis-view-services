@@ -16,8 +16,6 @@ typedef struct  {
     long long int count;
 } Client_Size_Info;
 
-static long long int LAST_VIEW_SEARCH_IDENTIFIER = 0;
-
 static const int DEFAULT_DIALECT = 4; 
 
 static const std::string CCT_MODULE_QUERY_DELIMETER = " ";

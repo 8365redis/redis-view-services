@@ -22,7 +22,7 @@ def test_dialect_version():
     assert resp[0][1] == '1'
 
 def test_dialect_4_is_added():
-    producer = connect_redis()
+    producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 

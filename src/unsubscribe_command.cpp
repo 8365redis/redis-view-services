@@ -18,7 +18,7 @@ int UnSubscribe_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     RedisModuleString *unsubscribe_id = argv[1];
     long long id_2_unsubscribe = -1;
     if (RedisModule_StringToLongLong( unsubscribe_id, &id_2_unsubscribe) == REDISMODULE_OK) {
-        if(id_2_unsubscribe < 0 || id_2_unsubscribe > LAST_VIEW_SEARCH_IDENTIFIER) {
+        if(id_2_unsubscribe < 0 ) {
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "UnSubscribe_RedisCommand given ID is invalid." );
             return RedisModule_ReplyWithError(ctx, "Given id must be bigger than -1 and smaller than latest query id");
         } else {

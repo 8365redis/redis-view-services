@@ -127,8 +127,8 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     }
 
     const int key_size = 1 ;
-    const int key_index = 0 ;
-    const int value_index = 3;
+    //const int key_index = 0 ;
+    //const int value_index = 3;
     const int response_inner_array_length = 4;
 
     for (const auto& it : keys) {

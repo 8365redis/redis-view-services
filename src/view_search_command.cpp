@@ -9,6 +9,8 @@
 
 using json = nlohmann::json;
 
+static long long int LAST_VIEW_SEARCH_IDENTIFIER = 0;
+
 class View_Diff {
 public:
     long long int index = 0;
@@ -226,7 +228,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     bool limit_arg_found = false;
     bool sortby_arg_found = false;
     std::string limit_arg = "";
-    for(int i = 0; i < arguments_redis_string_vector.size(); i++) {
+    for(long unsigned int i = 0; i < arguments_redis_string_vector.size(); i++) {
         std::string arg_str = RedisModule_StringPtrLen(arguments_redis_string_vector[i], NULL);
         if (limit_arg_found == false && arg_str == "LIMIT") {
             limit_arg_found = true;
@@ -328,7 +330,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     const int value_index_long = 3;
     int value_index = -1;
     const int response_inner_array_length_long = 4;
-    const int response_inner_array_length_short = 2;
+    //const int response_inner_array_length_short = 2;
     int real_inner_size = -1;
 
     for (const auto& it : keys) {
