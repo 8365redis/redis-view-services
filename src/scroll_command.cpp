@@ -129,18 +129,26 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     const int key_size = 1 ;
     //const int key_index = 0 ;
     //const int value_index = 3;
-    const int response_inner_array_length = 4;
+    //const int response_inner_array_length = 4;
 
     for (const auto& it : keys) {
+        int real_inner_size = it.size();
         if ( it.size() == key_size){
             RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
         }
         else {
-            RedisModule_ReplyWithArray(ctx , response_inner_array_length);
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(0).c_str(), strlen(it.at(0).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(1).c_str(), strlen(it.at(1).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(2).c_str(), strlen(it.at(2).c_str()));
-            RedisModule_ReplyWithStringBuffer(ctx, it.at(3).c_str(), strlen(it.at(3).c_str()));
+            RedisModule_ReplyWithArray(ctx , real_inner_size);
+            for(int i = 0 ; i < real_inner_size; i ++) {
+                if(i == real_inner_size-1){
+                    std::string str = it.at(i);
+                    if (str.size() > 0 && str[0] == '[' && str[str.size() - 1] == ']') {
+                        str = str.substr(1, str.size() - 2);
+                    }
+                    RedisModule_ReplyWithStringBuffer(ctx, str.c_str(), strlen(str.c_str()));                  
+                } else{
+                    RedisModule_ReplyWithStringBuffer(ctx, it.at(i).c_str(), strlen(it.at(i).c_str()));
+                }
+            }-
         }
     }
 

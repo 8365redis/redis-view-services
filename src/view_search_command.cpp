@@ -341,7 +341,15 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         else {
             RedisModule_ReplyWithArray(ctx , real_inner_size);
             for(int i = 0 ; i < real_inner_size; i ++) {
-                RedisModule_ReplyWithStringBuffer(ctx, it.at(i).c_str(), strlen(it.at(i).c_str()));
+                if(i == real_inner_size-1){
+                    std::string str = it.at(i);
+                    if (str.size() > 0 && str[0] == '[' && str[str.size() - 1] == ']') {
+                        str = str.substr(1, str.size() - 2);
+                    }
+                    RedisModule_ReplyWithStringBuffer(ctx, str.c_str(), strlen(str.c_str()));                  
+                } else{
+                    RedisModule_ReplyWithStringBuffer(ctx, it.at(i).c_str(), strlen(it.at(i).c_str()));
+                }
             }
         }
     }
@@ -479,8 +487,14 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         std::string value;
                         if(vec.size() == 4){
                             value = vec.at(value_index_long); // It is hardcoded value for value itself
+                            if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
+                                value = value.substr(1, value.size() - 2);
+                            }
                         } else {
                             value = vec.at(value_index_short); // It is hardcoded value for value itself
+                            if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
+                                value = value.substr(1, value.size() - 2);
+                            }
                         }
                         
                         if (!json::accept(value)){
