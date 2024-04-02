@@ -22,7 +22,7 @@ def test_view_query_id():
     key = cct_prepare.TEST_INDEX_PREFIX + str(1)
     producer.json().set(key, Path.root_path(), d)
 
-    id = 0
+    id = 1
 
     # FIRST CLIENT
     client1 = connect_redis()

@@ -31,7 +31,7 @@ def test_view_search_return_single():
     print(str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int(response[1])
     assert response_size == 1
 
@@ -52,7 +52,7 @@ def test_view_search_return_multi():
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 10
 
@@ -74,7 +74,7 @@ def test_view_search_return_multi_excess():
     print(str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 10
 
@@ -96,7 +96,7 @@ def test_view_search_return_multi_excess_with_limit():
     print(str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 10
 
@@ -104,7 +104,7 @@ def test_view_search_return_multi_excess_with_limit():
     print(str(response))
 
     query_id = int(response[0])
-    assert query_id == 1
+    assert query_id == 2
     response_size = int((len(response)-2)/2)
     assert response_size == 10
 
@@ -126,7 +126,7 @@ def test_view_search_no_return():
 
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int(response[1])
     assert response_size == 0
 
@@ -146,17 +146,17 @@ def test_view_search_query_id():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1000" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
 
     # FIRST CLIENT SECOND QUERY
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1001" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
-    assert query_id == 1
+    assert query_id == 2
 
     # FIRST CLIENT THIRD QUERY
     response = client1.execute_command("VIEW.SEARCH "+ cct_prepare.TEST_INDEX_NAME + " @User\\.ID:{" + "1002" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     query_id = int(response[0])
-    assert query_id == 2
+    assert query_id == 3
 
 
 def test_view_search_without_limit():
@@ -196,14 +196,14 @@ def test_view_search_failed_query_cleaned():
     assert "ResponseError" in str(e_info)
 
     result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert 0 ==  result[0]
+    assert 1 ==  result[0]
 
     with pytest.raises(Exception) as e_info:
         result = client1.execute_command("VIEW.SEARCH " + "NON_EXISTING_INDEX" + " @FAIL\\.ERROR:{" + "SHOULD_FAIL" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     assert "ResponseError" in str(e_info)
 
     result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "bbb" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert 1 ==  result[0]
+    assert 2 ==  result[0]
 
 def test_view_search_return_sort_limit():
     producer = connect_redis_with_start()
@@ -301,7 +301,7 @@ def test_view_search_return_multi_with_wrong_sortby():
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID_SORTBY LIMIT 0 10 DIALECT 4" )
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 10
 

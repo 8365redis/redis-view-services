@@ -33,7 +33,7 @@ def test_view_scroll_return_basic():
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 3
 
@@ -58,7 +58,7 @@ def test_view_scroll_and_search_same_format():
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     print(str(response))
 
-    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(0) + " 10 20")
+    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(1) + " 10 20")
     print(str(response))
 
 
@@ -81,7 +81,7 @@ def test_view_scroll_return_non_existing_query():
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 3
 
@@ -110,7 +110,7 @@ def test_view_scroll_return_json_format_dialect_4():
     print("\nVIEW.SEARCH RESPONSE        : " + str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 3
 
@@ -137,7 +137,7 @@ def test_view_scroll_return_json_format_dialect_1():
     print("\nVIEW.SEARCH RESPONSE        : " + str(response))
 
     query_id = int(response[0])
-    assert query_id == 0
+    assert query_id == 1
     response_size = int((len(response)-2)/2)
     assert response_size == 3
 

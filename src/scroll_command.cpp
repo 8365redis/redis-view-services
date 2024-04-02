@@ -148,7 +148,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
                 } else{
                     RedisModule_ReplyWithStringBuffer(ctx, it.at(i).c_str(), strlen(it.at(i).c_str()));
                 }
-            }-
+            }
         }
     }
 

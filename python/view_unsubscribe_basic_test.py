@@ -22,7 +22,7 @@ def test_single_client_single_query_unsubscribe():
     key = cct_prepare.TEST_INDEX_PREFIX + str(1)
     producer.json().set(key, Path.root_path(), d)
 
-    query_id = 0
+    query_id = 1
 
     # FIRST CLIENT
     client1 = connect_redis()
@@ -87,7 +87,7 @@ def test_single_client_single_query_unsubscribe_with_wrong_sortby():
         key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
         producer.json().set(key, Path.root_path(), d)
 
-    query_id = 0
+    query_id = 1
 
     # FIRST CLIENT
     client1 = connect_redis()

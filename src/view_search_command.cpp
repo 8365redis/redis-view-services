@@ -9,7 +9,7 @@
 
 using json = nlohmann::json;
 
-static long long int LAST_VIEW_SEARCH_IDENTIFIER = 0;
+static long long int LAST_VIEW_SEARCH_IDENTIFIER = 1;
 
 class View_Diff {
 public:
@@ -377,6 +377,9 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             if (!json::accept(value)){
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON is not valid." );
             } else {
+                if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
+                    value = value.substr(1, value.size() - 2);
+                }
                 new_values[key] = json::parse(value);
             }
         }

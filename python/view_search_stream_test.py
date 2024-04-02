@@ -176,3 +176,25 @@ def test_view_search_stream_write_new_added_single():
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print(str(from_stream))
 
+def test_view_search_stream_doesnt_write():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    i = 0 
+    d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
+    key = cct_prepare.TEST_INDEX_PREFIX + str(i)
+    producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3")
+    print("VIEW.SEARCH RESPONSE : " + str(response))
+
+    time.sleep(1.1)
+    
+    # CHECK STREAM
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    assert str(from_stream) == "[]"

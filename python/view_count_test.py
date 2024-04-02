@@ -36,7 +36,7 @@ def test_view_count_return_single():
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     #print("Stream : " + str(from_stream))
     assert len(from_stream[0][1]) == 1
-    assert from_stream[0][1][0][1]['LENGTH'] == '1'
+    assert from_stream[0][1][0][1]['COUNT'] == '1'
 
     # ADD SECOND DATA
     d = cct_prepare.generate_single_object(1001 , 2001, "aaa")
@@ -49,7 +49,7 @@ def test_view_count_return_single():
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     #print("After Second Data Stream : " + str(from_stream))
     assert len(from_stream[0][1]) == 2
-    assert from_stream[0][1][1][1]['LENGTH'] == '2'
+    assert from_stream[0][1][1][1]['COUNT'] == '2'
 
     time.sleep(1.1)
 
@@ -57,7 +57,7 @@ def test_view_count_return_single():
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     #print("After Second Data Stream No Change: " + str(from_stream))
     assert len(from_stream[0][1]) == 2
-    assert from_stream[0][1][1][1]['LENGTH'] == '2' 
+    assert from_stream[0][1][1][1]['COUNT'] == '2' 
 
 
 
