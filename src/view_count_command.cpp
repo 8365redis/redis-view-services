@@ -98,7 +98,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * 4);
                 xadd_params[0] = RedisModule_CreateString(ctx,"INDEX_QUERY", strlen("INDEX_QUERY"));
                 xadd_params[1] = RedisModule_CreateString(ctx, index_and_query.c_str(), index_and_query.length());
-                xadd_params[2] = RedisModule_CreateString(ctx, "LENGTH", strlen("LENGTH"));
+                xadd_params[2] = RedisModule_CreateString(ctx, "COUNT", strlen("COUNT"));
                 std::string size_str = std::to_string(current_count);
                 xadd_params[3] = RedisModule_CreateString(ctx, size_str.c_str(), size_str.length());
                 int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, 2);
