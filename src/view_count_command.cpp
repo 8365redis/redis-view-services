@@ -22,12 +22,7 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
         arguments_arg.push_back(RedisModule_StringPtrLen(arg, NULL));
     }
 
-    Client_Size_Info info;
-    info.stream_name = Get_Client_Name(ctx);
-    info.arguments.insert(info.arguments.begin(), arguments_arg.begin(), arguments_arg.end());
 
-    d_h.client_size_info.push_back(info);
-    //printf("CLIENT_SIZE_INFO size : %lu\n",CLIENT_SIZE_INFO.size());
 
     long long int current_count = 0;
     RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
@@ -44,6 +39,15 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     }
 
     RedisModule_ReplyWithLongLong(ctx, current_count);
+
+    Client_Size_Info info;
+    info.stream_name = Get_Client_Name(ctx);
+    info.arguments.insert(info.arguments.begin(), arguments_arg.begin(), arguments_arg.end());
+    info.count = current_count;
+    d_h.client_size_info.push_back(info);
+
+    //printf("CLIENT_SIZE_INFO size : %lu\n",CLIENT_SIZE_INFO.size());
+
     return REDISMODULE_OK;
 }
 

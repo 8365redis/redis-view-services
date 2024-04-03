@@ -34,9 +34,7 @@ def test_view_count_return_single():
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    #print("Stream : " + str(from_stream))
-    assert len(from_stream[0][1]) == 1
-    assert from_stream[0][1][0][1]['COUNT'] == '1'
+    assert from_stream == []
 
     # ADD SECOND DATA
     d = cct_prepare.generate_single_object(1001 , 2001, "aaa")
@@ -47,17 +45,17 @@ def test_view_count_return_single():
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    #print("After Second Data Stream : " + str(from_stream))
-    assert len(from_stream[0][1]) == 2
-    assert from_stream[0][1][1][1]['COUNT'] == '2'
+    print("After Second Data Stream : " + str(from_stream))
+    assert len(from_stream[0][1]) == 1
+    assert from_stream[0][1][0][1]['COUNT'] == '2'
 
     time.sleep(1.1)
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     #print("After Second Data Stream No Change: " + str(from_stream))
-    assert len(from_stream[0][1]) == 2
-    assert from_stream[0][1][1][1]['COUNT'] == '2' 
+    assert len(from_stream[0][1]) == 1
+    assert from_stream[0][1][0][1]['COUNT'] == '2'
 
 
 
@@ -88,3 +86,30 @@ def test_view_count_return_multi_exceed():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
     assert response == 100
+
+def test_view_count_doesnt_write_stream():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(1, 101):
+        d = cct_prepare.generate_single_object(1000 + i, 2000 + i, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(i)
+        producer.json().set(key, Path.root_path(), d)
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
+    assert response == 100
+
+    # CHECK STREAM
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    assert from_stream == []
+
+    time.sleep(1.1)
+
+    # CHECK STREAM
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    assert from_stream == []

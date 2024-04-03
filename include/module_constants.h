@@ -20,6 +20,6 @@ static const int DEFAULT_DIALECT = 4;
 
 static const std::string CCT_MODULE_QUERY_DELIMETER = " ";
 
-static const int CLIENT_TIMEOUT = 60;  // seconds
+static const int CLIENT_TIMEOUT = 600;  // seconds
 
 #endif /* MODULE_CONSTANTS_H */
