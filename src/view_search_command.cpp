@@ -581,16 +581,20 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
 
                 if( diff_size != 0 ) { 
-                    int stream_write_size_total = 2 + 2;
+                    int stream_write_size_total = 2 + 2 + 2;
                     RedisModuleString* client_name = RedisModule_CreateString(ctx, current_client.c_str(), current_client.length());
                     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
                     RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
-                    xadd_params[0] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
-                    xadd_params[1] = RedisModule_CreateString(ctx, d_h.id_2_query[current_query_id].c_str(), d_h.id_2_query[current_query_id].length());
-                    
+        
+                    xadd_params[0] = RedisModule_CreateString(ctx,"QUERY_ID", strlen("QUERY_ID"));
+                    xadd_params[1] = RedisModule_CreateStringFromLongLong(ctx, current_query_id);
 
-                    xadd_params[2] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
-                    xadd_params[3] = RedisModule_CreateString(ctx, diff_values_json_array.dump().c_str(), diff_values_json_array.dump().length());
+        
+                    xadd_params[2] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
+                    xadd_params[3] = RedisModule_CreateString(ctx, d_h.id_2_query[current_query_id].c_str(), d_h.id_2_query[current_query_id].length());
+
+                    xadd_params[4] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
+                    xadd_params[5] = RedisModule_CreateString(ctx, diff_values_json_array.dump().c_str(), diff_values_json_array.dump().length());
 
                     int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_size_total/2);
                     if (stream_add_resp != REDISMODULE_OK) {
