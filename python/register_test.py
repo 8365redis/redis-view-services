@@ -45,3 +45,22 @@ def test_re_register():
     with pytest.raises(Exception) as e_info:
         response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     assert "ResponseError" in str(e_info)
+
+def test_register_with_underscore():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    response = client1.execute_command("VIEW.REGISTER " + "name_with_underscore")
+    assert response == "OK"
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    response = client1.execute_command("VIEW.REGISTER " + "SentinelUIServer-kkappagantulaP")
+    assert response == "OK"
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    response = client1.execute_command("VIEW.REGISTER " + "SentinelUIServer_kkappagantulaP")
+    assert response == "OK"
