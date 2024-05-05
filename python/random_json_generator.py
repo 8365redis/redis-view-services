@@ -1,6 +1,10 @@
 import random
 import string
 from datetime import datetime, timedelta
+from redis.commands.json.path import Path
+from redis.commands.search.field import TextField, NumericField, TagField
+from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+import cct_prepare
 
 class RandomJsonGenerator:
     def generate_random_string(self, length=8):
@@ -19,9 +23,9 @@ class RandomJsonGenerator:
         return {
             "name": self.generate_random_string(),
             "tradeGroup": f"Group{random.randint(1, 100)}",
-            "region": f"region{random.randint(1, 5)}",
+            "region": random.randint(1, 5),
             "window": str(random.randint(1, 100)),
-            "value": random.randint(10000, 500000),
+            "value": random.randint(1, 500000),
             "blockEnabled": random.randint(1000, 20000),
             "utilizationPct": random.random(),
             "tallyState": random.choice(["NORMAL", "ABNORMAL"]),
@@ -31,3 +35,20 @@ class RandomJsonGenerator:
             "mt": "message_rates_enrichedcurrent",
             "uuid": self.generate_random_string(12)
         }
+
+    def create_index(self, r):
+        schema = (
+            NumericField("$.value", as_name="value", sortable=True),
+            TagField("$.name", as_name="name", sortable=True),
+            NumericField("$.region", as_name="region", sortable=True),
+            NumericField("$.blockEnabled", as_name="blockEnabled", sortable=True),
+            NumericField("$.utilizationPct", as_name="utilizationPct", sortable=True),
+            TagField("$.tallyState", as_name="tallyState", sortable=True),
+            TagField("$.authorizedBy", as_name="authorizedBy", sortable=True),
+            TagField("$.authorizedDate", as_name="authorizedDate", sortable=True),
+            TagField("$.inForce", as_name="inForce", sortable=True),
+            TagField("$.mt", as_name="mt", sortable=True),
+            TagField("$.uuid", as_name="uuid", sortable=True)
+        )
+        r.ft(cct_prepare.TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON))
+
