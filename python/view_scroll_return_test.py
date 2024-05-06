@@ -48,17 +48,20 @@ def test_view_scroll_and_search_same_format():
 
     # ADD INITIAL DATA
     for i in range(20):
-        d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
+        d = cct_prepare.generate_single_object(1000 + i , 2000 - i, "aaa")
         key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
         producer.json().set(key, Path.root_path(), d)
     
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + " SORTBY User.ID LIMIT 0 3")
     print(str(response))
 
-    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(1) + " 10 20")
+    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(1) + " 3 3")
+    print(str(response))
+
+    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(1) + " 6 3")
     print(str(response))
 
 

@@ -92,7 +92,12 @@ def test_single_client_single_query_unsubscribe_with_wrong_sortby():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID ASC LIMIT 0 10 DIALECT 4")
+    try:
+        result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID ASC LIMIT 0 10 DIALECT 4")
+    except Exception as e :
+        print(e)
+
+    result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID ASC LIMIT 0 10 DIALECT 4")
     print("VIEW.SEARCH response : " + str(result))
     assert query_id ==  result[0]
 

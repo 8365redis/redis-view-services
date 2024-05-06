@@ -7,6 +7,7 @@ from redis.commands.search.query import GeoFilter, NumericFilter, Query
 from redis.commands.search.result import Result
 import time
 
+
 @pytest.fixture(autouse=True)
 def before_and_after_test():
     print("Start")
@@ -61,7 +62,7 @@ def test_same_query_result():
     response6 = client1.execute_command(query)
     response6.pop(0)
 
-    assert response5 != response6
+    assert response5 == response6
 
 def test_same_query_with_changed_dataset():
     producer = connect_redis_with_start()

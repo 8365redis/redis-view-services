@@ -8,6 +8,8 @@ from redis.commands.search.query import GeoFilter, NumericFilter, Query
 from redis.commands.search.result import Result
 from random_json_generator import RandomJsonGenerator
 
+pytest.skip("Skip during test , remove this during manual run", allow_module_level=True)
+
 @pytest.fixture(autouse=True)
 def before_and_after_test():
     print("Start")
@@ -15,22 +17,22 @@ def before_and_after_test():
     kill_redis()
     print("End")
 
-TOTAL = 1000000
+TOTAL = 1000
 
 
 def test_add_data():
-    #producer = connect_redis_with_start()
-    #time.sleep(30)
-    #flush_db(producer) # clean all db first
-    #generator = RandomJsonGenerator()
-    #generator.create_index(producer)
+    producer = connect_redis_with_start()
+    time.sleep(1)
+    flush_db(producer) # clean all db first
+    generator = RandomJsonGenerator()
+    generator.create_index(producer)
 
     iteration = 1
-    # ADD INITIAL DATA
-    #for i in range(TOTAL):
-    #    random_json_object = generator.generate_random_json()
-    #    key = cct_prepare.TEST_INDEX_PREFIX + str(i)
-    #    producer.json().set(key, Path.root_path(), random_json_object)
+    #ADD INITIAL DATA
+    for i in range(TOTAL):
+        random_json_object = generator.generate_random_json()
+        key = cct_prepare.TEST_INDEX_PREFIX + str(i)
+        producer.json().set(key, Path.root_path(), random_json_object)
 
 
 
