@@ -122,62 +122,78 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     }
 
     // Reply array sizing
-    RedisModule_ReplyWithArray(ctx , (keys.size() * 2) + 1); 
+    RedisModule_ReplyWithArray(ctx , 4); 
 
-    // Reply Add the query id 
+    // Reply Add the query id
+    RedisModule_ReplyWithCString(ctx, "query_id");
     RedisModule_ReplyWithLongLong(ctx, query_id);
 
-    //Now get values
-    int get_argc = keys.size();
-    RedisModuleString **get_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * get_argc);
-    for (int i = 0; i < get_argc; ++i) {
-        get_argv[i] = RedisModule_CreateString(ctx, keys[i].c_str(), keys[i].size());
-    }
+    // Reply key and values
+    RedisModule_ReplyWithCString(ctx, "key_and_values");
 
-    RedisModuleCallReply *get_reply = RedisModule_Call(ctx, "JSON.MGET", "vc", get_argv , get_argc, "$");
-    if (RedisModule_CallReplyType(get_reply) != REDISMODULE_REPLY_ARRAY) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned not an array." );
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
-    }
-    RedisModule_Free(get_argv);
+    if(keys.size() > 0) {
+        RedisModule_ReplyWithArray(ctx , keys.size() * 4); // key name , value 
+        //Now get values
+        int get_argc = keys.size();
+        RedisModuleString **get_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * get_argc);
+        for (int i = 0; i < get_argc; ++i) {
+            get_argv[i] = RedisModule_CreateString(ctx, keys[i].c_str(), keys[i].size());
+        }
 
-    // Parse get values
-    std::unordered_map<std::string, nlohmann::json> key_value_map;
-    const size_t get_reply_length = RedisModule_CallReplyLength(get_reply);
-    if(get_reply_length != keys.size()) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
-        return RedisModule_ReplyWithError(ctx, strerror(errno));        
-    }
-    for (size_t i = 0; i < get_reply_length; i++) {  
-        RedisModuleCallReply *get_inner_reply = RedisModule_CallReplyArrayElement(get_reply, i);
-        RedisModuleString *get_reply_elem = RedisModule_CreateStringFromCallReply(get_inner_reply);
-        const char *get_reply_elem_str = RedisModule_StringPtrLen(get_reply_elem, NULL);
-        if (!json::accept(get_reply_elem_str)){
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element which is not valid json" );
-            continue;
+        RedisModuleCallReply *get_reply = RedisModule_Call(ctx, "JSON.MGET", "vc", get_argv , get_argc, "$");
+        if (RedisModule_CallReplyType(get_reply) != REDISMODULE_REPLY_ARRAY) {
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned not an array." );
+            return RedisModule_ReplyWithError(ctx, strerror(errno));
         }
-        std::string value = get_reply_elem_str;
-        if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
-            value = value.substr(1, value.size() - 2);
-        }
-        key_value_map[keys[i]] = json::parse(value);
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand key: " + std::string(keys[i]) + " value: " + value );
-    }
+        RedisModule_Free(get_argv);
 
-    // Return Values
-    for (auto &k : keys){
-        RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
-        RedisModule_ReplyWithArray(ctx , 2);
-        RedisModule_ReplyWithStringBuffer(ctx, "$" , 1 );
-        if (key_value_map.count(k) == 0) {
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element not matching key" );
-            continue;            
+        // Parse get values
+        std::unordered_map<std::string, nlohmann::json> key_value_map;
+        const size_t get_reply_length = RedisModule_CallReplyLength(get_reply);
+        if(get_reply_length != keys.size()) {
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
+            return RedisModule_ReplyWithError(ctx, strerror(errno));        
         }
-        std::string val = key_value_map[k].dump();
-        RedisModule_ReplyWithStringBuffer(ctx, val.c_str() , val.length());
+        for (size_t i = 0; i < get_reply_length; i++) {  
+            RedisModuleCallReply *get_inner_reply = RedisModule_CallReplyArrayElement(get_reply, i);
+            RedisModuleString *get_reply_elem = RedisModule_CreateStringFromCallReply(get_inner_reply);
+            const char *get_reply_elem_str = RedisModule_StringPtrLen(get_reply_elem, NULL);
+            if (!json::accept(get_reply_elem_str)){
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element which is not valid json" );
+                continue;
+            }
+            std::string value = get_reply_elem_str;
+            if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
+                value = value.substr(1, value.size() - 2);
+            }
+            key_value_map[keys[i]] = json::parse(value);
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand key: " + std::string(keys[i]) + " value: " + value );
+        }
+
+        // Return Values
+        for (auto &k : keys){
+            RedisModule_ReplyWithCString(ctx, "key_name");
+            RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
+            RedisModule_ReplyWithCString(ctx, "value");
+            RedisModule_ReplyWithArray(ctx , 4);
+            RedisModule_ReplyWithCString(ctx, "attribute");
+            RedisModule_ReplyWithCString(ctx, "$");
+            if (key_value_map.count(k) == 0) {
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element not matching key" );
+                RedisModule_ReplyWithCString(ctx, "data");
+                RedisModule_ReplyWithEmptyString(ctx);
+                continue;            
+            }
+            std::string val = key_value_map[k].dump();
+            RedisModule_ReplyWithCString(ctx, "data");
+            RedisModule_ReplyWithStringBuffer(ctx, val.c_str() , val.length());
+        }
+    } else {
+        RedisModule_ReplyWithEmptyArray(ctx);
     }
 
     d_h.scroll_wait_list.push_back(std::make_tuple(query_id, offset, limit));
+    
 
     return REDISMODULE_OK;
 

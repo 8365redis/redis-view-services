@@ -304,16 +304,24 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     }
 
     // Reply array sizing
-    RedisModule_ReplyWithArray(ctx , (keys.size() * 2) + 2); 
+    RedisModule_ReplyWithArray(ctx , 6);  // id , count , k_v's   
 
-    // Reply Add the new query ID 
+    // Reply Add the new query ID  
+    RedisModule_ReplyWithCString(ctx, "query_id");
     RedisModule_ReplyWithLongLong(ctx, LAST_VIEW_SEARCH_IDENTIFIER);
 
-    // Reply Add the response size 
+    // Reply Add the response size
+    RedisModule_ReplyWithCString(ctx, "count");
     RedisModule_ReplyWithLongLong(ctx, total_size_from_reply);
+
+    // Reply key and values
+    RedisModule_ReplyWithCString(ctx, "key_and_values");
 
     std::unordered_map<std::string, nlohmann::json> key_value_map;
     if (keys.size() != 0 ) {
+
+        RedisModule_ReplyWithArray(ctx , keys.size() * 4); // key name , value 
+
         //Now get values
         int get_argc = keys.size();
         RedisModuleString **get_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * get_argc);
@@ -355,16 +363,24 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
         // Return Values
         for (auto &k : keys){
+            RedisModule_ReplyWithCString(ctx, "key_name");
             RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
-            RedisModule_ReplyWithArray(ctx , 2);
-            RedisModule_ReplyWithStringBuffer(ctx, "$" , 1 );
+            RedisModule_ReplyWithCString(ctx, "value");
+            RedisModule_ReplyWithArray(ctx , 4); // partial and data
+            RedisModule_ReplyWithCString(ctx, "attribute");
+            RedisModule_ReplyWithCString(ctx, "$");
             if (key_value_map.count(k) == 0) {
+                RedisModule_ReplyWithCString(ctx, "data");
+                RedisModule_ReplyWithEmptyString(ctx);
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element not matching key" );
                 continue;            
             }
             std::string val = key_value_map[k].dump();
+            RedisModule_ReplyWithCString(ctx, "data");
             RedisModule_ReplyWithStringBuffer(ctx, val.c_str() , val.length());
         }
+    } else {
+        RedisModule_ReplyWithEmptyArray(ctx);
     }
 
     //UPDATE GLOBALS
@@ -577,9 +593,6 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler failed to add to the stream." );
                     }
                 }
-
-
-
             }
         }
         // Unregister Clients
