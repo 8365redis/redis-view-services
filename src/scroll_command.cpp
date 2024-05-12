@@ -88,9 +88,10 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     }
 
     // Parse Search Result
-    long long total_size_from_reply;
     const size_t aggreate_reply_length = RedisModule_CallReplyLength(reply);
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand aggregate_reply size : " + aggreate_reply_length );
+    /*
+    long long total_size_from_reply;
     RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
     if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
         total_size_from_reply = RedisModule_CallReplyInteger(key_int_reply);
@@ -98,6 +99,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed to get aggregate_reply size." );
         return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
+    */
 
     // First get keys
     std::vector<std::string> keys;

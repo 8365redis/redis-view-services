@@ -34,12 +34,26 @@ public:
 };  
 
 
-bool NeedToAddDialect4_2(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
+bool AttributeExist(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
+    Data_Handler &d_h = Data_Handler::getInstance();
+    // Next two line MUST match the part in NeedToAddDialect4 function
+    // That part caches we just check if exist
+    sortby_arg = "$." + sortby_arg;
+    std::string type_key = index_name + "-" + sortby_arg;
+
+    if(d_h.index_attribute_2_type.count(type_key) > 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool NeedToAddDialect4(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) { 
 
     Data_Handler &d_h = Data_Handler::getInstance();
 
-    printf("Index name: %s\n", index_name.c_str()); // Debug print
-    printf("Sortby arg: %s\n", sortby_arg.c_str()); // Debug print
+    //printf("Index name: %s\n", index_name.c_str()); // Debug print
+    //printf("Sortby arg: %s\n", sortby_arg.c_str()); // Debug print
     sortby_arg = "$." + sortby_arg;
 
     std::string type_key = index_name + "-" + sortby_arg;
@@ -203,6 +217,16 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         arguments_string_vector.push_back(arg_str);
     }
 
+    // INNERKEY MUST be last 2 parameters
+    std::string inner_key_arg = "";
+    bool inner_key_arg_found = false;
+    if(arguments_string_vector.size() > 2 && arguments_string_vector[arguments_string_vector.size() - 2] == "INNERKEY") {
+        inner_key_arg = arguments_string_vector[arguments_string_vector.size() - 1];
+        inner_key_arg_found = true;
+        arguments_string_vector.pop_back(); // Need to delete last two params
+        arguments_string_vector.pop_back(); // Not a duplicate line , this is faster
+    }
+
     if(sortby_arg_found == false || sortby_arg == ""){
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand query doesn't have SORTBY argument." );
         return RedisModule_ReplyWithError(ctx,"No Sortby arg");
@@ -213,30 +237,52 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         return RedisModule_ReplyWithError(ctx, "No Limit arg");
     }
 
-    bool needToAddDialect4 = NeedToAddDialect4_2(ctx, arguments_string_vector[0], sortby_arg);
+    //Check dialect 4
+    bool needToAddDialect4 = NeedToAddDialect4(ctx, arguments_string_vector[0], sortby_arg);
+    // After first dialect check we can check if the inner key exist (need to fill the cache for the index)
+    bool inner_key_exist = AttributeExist(ctx, arguments_string_vector[0], inner_key_arg);
     if (needToAddDialect4) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 4." );
-        arguments_string_vector.push_back("DIALECT");
-        arguments_string_vector.push_back("4");
+        if(inner_key_exist && inner_key_arg_found) {
+            needToAddDialect4 = NeedToAddDialect4(ctx, arguments_string_vector[0], inner_key_arg); // Optimize here , handle it with one call
+        }
+        if(needToAddDialect4) {
+            LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 4." );
+            arguments_string_vector.push_back("DIALECT");
+            arguments_string_vector.push_back("4");
+        }
     }
 
-    //convert to aggragate
+    if(!inner_key_exist){
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand Given INNERKEY is not found in index , fallback to __key." );
+        inner_key_arg_found = false;
+        inner_key_arg = "";
+    }
 
+
+    //convert to aggragate
     for(auto &ft_search_arg : arguments_string_vector) {
         if(ft_search_arg == "SORTBY") {
-            arguments_string_converted_vector.push_back("LOAD");
-            arguments_string_converted_vector.push_back("1");
-            arguments_string_converted_vector.push_back("@__key");
+            if(!inner_key_arg_found){
+                arguments_string_converted_vector.push_back("LOAD");
+                arguments_string_converted_vector.push_back("1");
+                arguments_string_converted_vector.push_back("@__key");
+            }
             arguments_string_converted_vector.push_back(ft_search_arg);
             arguments_string_converted_vector.push_back("4");
+            if(inner_key_arg_found) {
+                arguments_string_converted_vector.push_back("@"+inner_key_arg);
+                arguments_string_converted_vector.push_back("ASC");                
+            }            
             arguments_string_converted_vector.push_back("@"+sortby_arg);
             arguments_string_converted_vector.push_back(sortby_arg_order);
-            arguments_string_converted_vector.push_back("@__key");
-            arguments_string_converted_vector.push_back("ASC");
+            if(!inner_key_arg_found) {
+                arguments_string_converted_vector.push_back("@__key");
+                arguments_string_converted_vector.push_back("ASC");            
+            } 
         } else if (ft_search_arg == sortby_arg ) {
-            continue;
+            continue; // We have already added
         }else if (ft_search_arg == "DESC" || ft_search_arg == "ASC") {
-            continue;
+            continue; // We have already added
         } else {
             arguments_string_converted_vector.push_back(ft_search_arg);
         }
@@ -288,7 +334,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
             size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
             if(inner_reply_length == 4) {
-                RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1);
+                RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1); // getting first value which MUST be the key
                 RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                 const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
                 LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
