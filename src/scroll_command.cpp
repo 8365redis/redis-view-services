@@ -90,7 +90,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     // Parse Search Result
     const size_t aggreate_reply_length = RedisModule_CallReplyLength(reply);
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand aggregate_reply size : " + aggreate_reply_length );
-    /*
+    
     long long total_size_from_reply;
     RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
     if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
@@ -99,7 +99,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed to get aggregate_reply size." );
         return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
-    */
+    
 
     // First get keys
     std::vector<std::string> keys;
@@ -111,9 +111,15 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
                 RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1);
                 RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                 const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
+                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key (array 4): " + std::string(arr_elem_key_name_str) );
                 keys.push_back(arr_elem_key_name_str);
-            } else {
+            } else if(inner_reply_length == 2) {
+                RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1);
+                RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
+                const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
+                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key (array 2): " + std::string(arr_elem_key_name_str) );
+                keys.push_back(arr_elem_key_name_str);                
+            }else {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand get unexpected (array size is wrong)." );
                 return RedisModule_ReplyWithError(ctx, strerror(errno));                    
             }
@@ -124,14 +130,18 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     }
 
     // Reply array sizing
-    RedisModule_ReplyWithArray(ctx , 4); 
+    RedisModule_ReplyWithArray(ctx , 6); 
 
     // Reply Add the query id
     RedisModule_ReplyWithCString(ctx, "query_id");
     RedisModule_ReplyWithLongLong(ctx, query_id);
 
+    // Reply Add the response size
+    RedisModule_ReplyWithCString(ctx, "count");
+    RedisModule_ReplyWithLongLong(ctx, total_size_from_reply);
+
     // Reply key and values
-    RedisModule_ReplyWithCString(ctx, "key_and_values");
+    RedisModule_ReplyWithCString(ctx, "result");
 
     if(keys.size() > 0) {
         RedisModule_ReplyWithArray(ctx , keys.size() * 4); // key name , value 
@@ -174,11 +184,11 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 
         // Return Values
         for (auto &k : keys){
-            RedisModule_ReplyWithCString(ctx, "key_name");
+            RedisModule_ReplyWithCString(ctx, "key");
             RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
             RedisModule_ReplyWithCString(ctx, "value");
             RedisModule_ReplyWithArray(ctx , 4);
-            RedisModule_ReplyWithCString(ctx, "attribute");
+            RedisModule_ReplyWithCString(ctx, "path");
             RedisModule_ReplyWithCString(ctx, "$");
             if (key_value_map.count(k) == 0) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element not matching key" );

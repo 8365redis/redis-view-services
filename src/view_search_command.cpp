@@ -31,7 +31,14 @@ public:
         view_diff_str["diff"] = diff;
         return view_diff_str;
     };
-};  
+};
+
+std::string toUpperCase(const std::string &str) {
+    std::string upperStr = str;
+    std::transform(upperStr.begin(), upperStr.end(), upperStr.begin(), [](unsigned char c) { return std::toupper(c); });
+    return upperStr;
+}
+
 
 
 bool AttributeExist(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
@@ -209,7 +216,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             }
             if(i+2 < arguments_redis_string_vector.size()){
                 sortby_arg_order = RedisModule_StringPtrLen(arguments_redis_string_vector[i+2], NULL);
-                if(sortby_arg_order != "DESC" && sortby_arg_order != "ASC") {
+                if(toUpperCase(sortby_arg_order) != "DESC" && toUpperCase(sortby_arg_order) != "ASC") {
                     sortby_arg_order = "ASC"; // DEFAULT
                 }
             }
@@ -258,30 +265,41 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         inner_key_arg = "";
     }
 
+    bool inner_key_equal_sortby = false;
+    if(inner_key_arg_found && inner_key_arg == sortby_arg) {
+        inner_key_equal_sortby = true;
+    }
+
 
     //convert to aggragate
     for(auto &ft_search_arg : arguments_string_vector) {
         if(ft_search_arg == "SORTBY") {
-            if(!inner_key_arg_found){
-                arguments_string_converted_vector.push_back("LOAD");
-                arguments_string_converted_vector.push_back("1");
-                arguments_string_converted_vector.push_back("@__key");
-            }
-            arguments_string_converted_vector.push_back(ft_search_arg);
-            arguments_string_converted_vector.push_back("4");
-            if(inner_key_arg_found) {
-                arguments_string_converted_vector.push_back("@"+inner_key_arg);
-                arguments_string_converted_vector.push_back("ASC");                
-            }            
-            arguments_string_converted_vector.push_back("@"+sortby_arg);
-            arguments_string_converted_vector.push_back(sortby_arg_order);
-            if(!inner_key_arg_found) {
-                arguments_string_converted_vector.push_back("@__key");
-                arguments_string_converted_vector.push_back("ASC");            
+            if(inner_key_equal_sortby) {
+                arguments_string_converted_vector.push_back(ft_search_arg);
+                arguments_string_converted_vector.push_back("2");         
+                arguments_string_converted_vector.push_back("@"+sortby_arg);
+                arguments_string_converted_vector.push_back(sortby_arg_order);
+            } else {
+                if(!inner_key_arg_found){
+                    arguments_string_converted_vector.push_back("LOAD");
+                    arguments_string_converted_vector.push_back("1");
+                    arguments_string_converted_vector.push_back("@__key");
+                }
+                arguments_string_converted_vector.push_back(ft_search_arg);
+                arguments_string_converted_vector.push_back("4");         
+                arguments_string_converted_vector.push_back("@"+sortby_arg);
+                arguments_string_converted_vector.push_back(sortby_arg_order);
+                if(inner_key_arg_found) {
+                    arguments_string_converted_vector.push_back("@"+inner_key_arg);
+                    arguments_string_converted_vector.push_back("ASC");                
+                } else {
+                    arguments_string_converted_vector.push_back("@__key");
+                    arguments_string_converted_vector.push_back("ASC");            
+                }
             } 
         } else if (ft_search_arg == sortby_arg ) {
             continue; // We have already added
-        }else if (ft_search_arg == "DESC" || ft_search_arg == "ASC") {
+        }else if (toUpperCase(ft_search_arg) == "DESC" || toUpperCase(ft_search_arg) == "ASC") {
             continue; // We have already added
         } else {
             arguments_string_converted_vector.push_back(ft_search_arg);
@@ -318,7 +336,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     // Parse Search Result
     long long total_size_from_reply;
     const size_t aggreate_reply_length = RedisModule_CallReplyLength(aggregate_reply);
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand aggregate_reply size : " + aggreate_reply_length );
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand aggregate_reply size : " + std::to_string(aggreate_reply_length) );
     RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(aggregate_reply, 0);
     if (RedisModule_CallReplyType(key_int_reply) == REDISMODULE_REPLY_INTEGER){
         total_size_from_reply = RedisModule_CallReplyInteger(key_int_reply);
@@ -333,15 +351,28 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         RedisModuleCallReply *key_reply = RedisModule_CallReplyArrayElement(aggregate_reply, i);
         if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
             size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
-            if(inner_reply_length == 4) {
-                RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1); // getting first value which MUST be the key
-                RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
-                const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
-                keys.push_back(arr_elem_key_name_str);
-            } else {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand get unexpected (array size is wrong)." );
-                return RedisModule_ReplyWithError(ctx, strerror(errno));                    
+            if(!inner_key_equal_sortby) {
+                if(inner_reply_length == 4) {
+                    RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1); // getting first value which MUST be the key
+                    RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
+                    const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
+                    keys.push_back(arr_elem_key_name_str);
+                } else {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand get unexpected (array size is wrong not 4)." );
+                    return RedisModule_ReplyWithError(ctx, strerror(errno));                    
+                }
+            }else {
+                if(inner_reply_length == 2) {
+                    RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1); // getting first value which MUST be the key
+                    RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
+                    const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
+                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
+                    keys.push_back(arr_elem_key_name_str);
+                } else {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand get unexpected (array size is wrong not 2)." );
+                    return RedisModule_ReplyWithError(ctx, strerror(errno));                    
+                }                
             }
         }else {
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand get unexpected (not an array)." );
@@ -350,7 +381,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     }
 
     // Reply array sizing
-    RedisModule_ReplyWithArray(ctx , 6);  // id , count , k_v's   
+    RedisModule_ReplyWithArray(ctx , 6);  // id , count , result's   
 
     // Reply Add the new query ID  
     RedisModule_ReplyWithCString(ctx, "query_id");
@@ -361,7 +392,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     RedisModule_ReplyWithLongLong(ctx, total_size_from_reply);
 
     // Reply key and values
-    RedisModule_ReplyWithCString(ctx, "key_and_values");
+    RedisModule_ReplyWithCString(ctx, "result");
 
     std::unordered_map<std::string, nlohmann::json> key_value_map;
     if (keys.size() != 0 ) {
@@ -409,11 +440,11 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
         // Return Values
         for (auto &k : keys){
-            RedisModule_ReplyWithCString(ctx, "key_name");
+            RedisModule_ReplyWithCString(ctx, "key");
             RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
             RedisModule_ReplyWithCString(ctx, "value");
             RedisModule_ReplyWithArray(ctx , 4); // partial and data
-            RedisModule_ReplyWithCString(ctx, "attribute");
+            RedisModule_ReplyWithCString(ctx, "path");
             RedisModule_ReplyWithCString(ctx, "$");
             if (key_value_map.count(k) == 0) {
                 RedisModule_ReplyWithCString(ctx, "data");
@@ -492,8 +523,14 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1);
                             RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                             const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(arr_elem_key_name_str) );
+                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key (array 4): " + std::string(arr_elem_key_name_str) );
                             view_new_keys.push_back(arr_elem_key_name_str);
+                        } else if(inner_reply_length == 2) {
+                            RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1);
+                            RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
+                            const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
+                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key (array 2): " + std::string(arr_elem_key_name_str) );
+                            view_new_keys.push_back(arr_elem_key_name_str);              
                         } else {
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler get unexpected (array size is wrong)." );
                             continue;                  

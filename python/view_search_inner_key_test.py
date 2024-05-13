@@ -161,3 +161,31 @@ def test_wrong_inner_key():
 
     response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 5 5")
     print("\nDEFAULT                : " + str(response))
+
+def test_sortby_and_inner_key_same():
+    producer = connect_redis()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , key, "aaa")
+        producer.json().set(key, Path.root_path(), d)
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3 INNERKEY User.Address.ID")
+    print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.Address.ID DESC LIMIT 0 3 INNERKEY User.Address.ID")
+    print("\nVIEW.SEARCH RESPONSE 2: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.Address.ID DESC LIMIT 0 3")
+    print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
