@@ -252,7 +252,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         }
     }
 
-    if(!inner_key_exist){
+    if(inner_key_arg_found && !inner_key_exist ){
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand Given INNERKEY is not found in index , fallback to __key." );
         inner_key_arg_found = false;
         inner_key_arg = "";
@@ -477,7 +477,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 // Forward Search
                 RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.AGGREGATE", "v", arguments.begin(), arguments.size());
                 if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler FT.AGGREGATE failed." );
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler FT.AGGREGATE failed." );
+                    continue;
                 }
 
                 // First get keys
@@ -494,10 +495,12 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(arr_elem_key_name_str) );
                             view_new_keys.push_back(arr_elem_key_name_str);
                         } else {
-                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler get unexpected (array size is wrong)." );                  
+                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler get unexpected (array size is wrong)." );
+                            continue;                  
                         }
                     }else {
-                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler get unexpected (not an array)." );     
+                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler get unexpected (not an array)." );
+                        continue;
                     }
                 }
 
@@ -510,7 +513,9 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
 
                 RedisModuleCallReply *get_reply = RedisModule_Call(ctx, "JSON.MGET", "vc", get_argv , get_argc, "$");
                 if (RedisModule_CallReplyType(get_reply) != REDISMODULE_REPLY_ARRAY) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON.MGET returned not an array." );
+                    RedisModule_Free(get_argv);
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR]  View_Search_Handler JSON.MGET returned not an array." );
+                    continue;
                 }
                 RedisModule_Free(get_argv);
 
@@ -518,14 +523,15 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 std::unordered_map<std::string, nlohmann::json> new_values;
                 const size_t get_reply_length = RedisModule_CallReplyLength(get_reply);
                 if(get_reply_length != view_new_keys.size()) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
+                    continue;
                 }
                 for (size_t i = 0; i < get_reply_length; i++) {  
                     RedisModuleCallReply *get_inner_reply = RedisModule_CallReplyArrayElement(get_reply, i);
                     RedisModuleString *get_reply_elem = RedisModule_CreateStringFromCallReply(get_inner_reply);
                     const char *get_reply_elem_str = RedisModule_StringPtrLen(get_reply_elem, NULL);
                     if (!json::accept(get_reply_elem_str)){
-                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler JSON.MGET returned an element which is not valid json" );
+                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler JSON.MGET returned an element which is not valid json" );
                         continue;
                     }
                     std::string value = get_reply_elem_str;
@@ -682,16 +688,19 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             long long int query_id = std::get<0>(scroll_triplet);
             long long int offset = std::get<1>(scroll_triplet);
             long long int limit = std::get<2>(scroll_triplet);
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler scrolling query id :. " + std::to_string(query_id) );
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler Scrolling query id : " + std::to_string(query_id)  + " with offset: " + std::to_string(offset) + " and limit: " + std::to_string(limit) );
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler Query before scroll : " + d_h.id_2_query[query_id]);
             
             for(auto &c2q : d_h.client_2_query) {
                 std::string current_client = c2q.first;
                 std::vector<std::string> query_vec = c2q.second[query_id];
                 for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
+                    //printf("Scroll arg -%s- \n" , query_vec[arg_index].c_str() );
                     if (query_vec[arg_index] == "LIMIT") {
                         if(query_vec.size() > arg_index + 2){
-                            query_vec[arg_index+1] = offset;
-                            query_vec[arg_index+2] = limit;
+                            //printf("Update scroll params arg \n");
+                            query_vec[arg_index+1] = std::to_string(offset);
+                            query_vec[arg_index+2] = std::to_string(limit);
                             d_h.client_2_query[current_client][query_id] = query_vec; // Update global 
                             std::string arguments_string = "";
                             for(auto const& e : query_vec) arguments_string += (e + CCT_MODULE_QUERY_DELIMETER);
