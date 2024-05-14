@@ -163,14 +163,14 @@ def test_wrong_inner_key():
     print("\nDEFAULT                : " + str(response))
 
 def test_sortby_and_inner_key_same():
-    producer = connect_redis()
+    producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 
     # ADD INITIAL DATA
     for i in range(20):
         key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
-        d = cct_prepare.generate_single_object(1000 , key, "aaa")
+        d = cct_prepare.generate_single_object(1000+i , key, "aaa")
         producer.json().set(key, Path.root_path(), d)
 
     # FIRST CLIENT
@@ -188,4 +188,106 @@ def test_sortby_and_inner_key_same():
     time.sleep(1.1)
 
     response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.Address.ID DESC LIMIT 0 3")
+    print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
+
+def test_sortby_and_inner_key_same_different_order():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000+i , 1000, key)
+        producer.json().set(key, Path.root_path(), d)
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.Address.ID DESC LIMIT 0 3 INNERKEY User.PASSPORT")
+    print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3 INNERKEY User.PASSPORT")
+    print("\nVIEW.SEARCH RESPONSE 2: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.Address.ID DESC LIMIT 0 3")
+    print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
+
+def test_sortby_and_inner_key_same_different_order_with_text_1():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first 
+    schema = (TextField("$.aaa", as_name="aaa", sortable=True), TextField("$.bbb", as_name="bbb", sortable=True),  \
+              TextField("$.ccc", as_name="ccc", sortable=True) )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON)) 
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = {}
+        d["aaa"] = key
+        d["bbb"] = str(100+i)
+        d["ccc"] = "ccc"
+        producer.json().set(key, Path.root_path(), d)
+    
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY bbb DESC LIMIT 0 3 INNERKEY aaa")
+    print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY ccc DESC LIMIT 0 3 INNERKEY aaa")
+    print("\nVIEW.SEARCH RESPONSE 2: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY aaa DESC LIMIT 0 3")
+    print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
+
+
+def test_sortby_and_inner_key_same_different_order_with_text_2():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first 
+    schema = (TextField("$.aaa", as_name="aaa", sortable=True), TextField("$.bbb", as_name="bbb", sortable=True),  \
+              TextField("$.ccc", as_name="ccc", sortable=True) )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON)) 
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = {}
+        d["aaa"] = str(100-i)
+        d["bbb"] = str(100+i)
+        d["ccc"] = key
+        producer.json().set(key, Path.root_path(), d)
+    
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY bbb DESC LIMIT 0 3 INNERKEY ccc")
+    print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY ccc DESC LIMIT 0 3 INNERKEY ccc")
+    print("\nVIEW.SEARCH RESPONSE 2: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY ccc DESC LIMIT 0 3")
+    print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
+
+    time.sleep(1.1)
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY aaa DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
