@@ -133,16 +133,17 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     RedisModule_ReplyWithArray(ctx , 6); 
 
     // Reply Add the query id
-    RedisModule_ReplyWithCString(ctx, "query_id");
+    RedisModule_ReplyWithCString(ctx, REPLY_QUERY_ID_STR.c_str());
     RedisModule_ReplyWithLongLong(ctx, query_id);
 
     // Reply Add the response size
-    RedisModule_ReplyWithCString(ctx, "count");
+    RedisModule_ReplyWithCString(ctx, REPLY_COUNT_STR.c_str());
     RedisModule_ReplyWithLongLong(ctx, total_size_from_reply);
 
     // Reply key and values
-    RedisModule_ReplyWithCString(ctx, "result");
+    RedisModule_ReplyWithCString(ctx, REPLY_RESULT_STR.c_str());
 
+    std::unordered_map<std::string, nlohmann::json> key_value_map;
     if(keys.size() > 0) {
         RedisModule_ReplyWithArray(ctx , keys.size() * 4); // key name , value 
         //Now get values
@@ -160,7 +161,6 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         RedisModule_Free(get_argv);
 
         // Parse get values
-        std::unordered_map<std::string, nlohmann::json> key_value_map;
         const size_t get_reply_length = RedisModule_CallReplyLength(get_reply);
         if(get_reply_length != keys.size()) {
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
@@ -184,26 +184,31 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
 
         // Return Values
         for (auto &k : keys){
-            RedisModule_ReplyWithCString(ctx, "key");
+            RedisModule_ReplyWithCString(ctx, REPLY_KEY_STR.c_str());
             RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
-            RedisModule_ReplyWithCString(ctx, "value");
+            RedisModule_ReplyWithCString(ctx, REPLY_VALUE_STR.c_str());
             RedisModule_ReplyWithArray(ctx , 4);
-            RedisModule_ReplyWithCString(ctx, "path");
-            RedisModule_ReplyWithCString(ctx, "$");
+            RedisModule_ReplyWithCString(ctx, REPLY_PATH_STR.c_str());
+            RedisModule_ReplyWithCString(ctx, REPLY_DATA_ROOT_STR.c_str());
             if (key_value_map.count(k) == 0) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element not matching key" );
-                RedisModule_ReplyWithCString(ctx, "data");
+                RedisModule_ReplyWithCString(ctx, REPLY_DATA_STR.c_str());
                 RedisModule_ReplyWithEmptyString(ctx);
                 continue;            
             }
             std::string val = key_value_map[k].dump();
-            RedisModule_ReplyWithCString(ctx, "data");
+            RedisModule_ReplyWithCString(ctx, REPLY_DATA_STR.c_str());
             RedisModule_ReplyWithStringBuffer(ctx, val.c_str() , val.length());
         }
     } else {
         RedisModule_ReplyWithEmptyArray(ctx);
     }
 
+    // Update Globals for keys and value
+    d_h.query_2_value[query_id] = key_value_map;
+    d_h.query_2_index[query_id] = keys;
+
+    // Push the scroll (we do it in main loop thread to not cause sync problem)
     d_h.scroll_wait_list.push_back(std::make_tuple(query_id, offset, limit));
     
 

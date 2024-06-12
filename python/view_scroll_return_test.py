@@ -146,3 +146,44 @@ def test_view_scroll_return_json_format_dialect_1():
 
     response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(query_id) + " 10 3")
     print("\nVIEW.SEARCH.SCROLL RESPONSE : " +str(response))
+
+
+def test_view_scroll_return_doesnt_write_stream():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        d = cct_prepare.generate_single_object(1000 + i , 2000, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+
+    time.sleep(1.1)
+
+    # CHECK STREAM
+    from_stream = client1.xread( count=4, streams={cct_prepare.TEST_APP_NAME_1:1} )
+    print("\nSTREAM BEFORE SEARCH : " +str(from_stream))
+    
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY User.ID ASC LIMIT 0 1")
+    print("\nVIEW.SEARCH RESPONSE : " + str(response))
+
+    time.sleep(1.1)
+
+    # CHECK STREAM
+    from_stream = client1.xread( count=4,  streams={cct_prepare.TEST_APP_NAME_1:1} )
+    print("\nSTREAM AFTER SEARCH : " +str(from_stream))
+
+    response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(1) + " 1 1")
+    print("\nVIEW.SEARCH.SCROLL RESPONSE : " +str(response))
+
+    time.sleep(2.2)
+
+    # CHECK STREAM
+    from_stream = client1.xread( count=4, streams={cct_prepare.TEST_APP_NAME_1:1} )
+    print("\nnSTREAM AFTER SCROLL : " +str(from_stream))
+    assert  str(from_stream) == "[]"

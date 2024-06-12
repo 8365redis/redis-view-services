@@ -173,7 +173,7 @@ def test_view_search_stream_write_new_added_single():
     time.sleep(1.1)
 
     # CHECK STREAM
-    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
+    from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0})
     print(str(from_stream))
 
 def test_view_search_stream_doesnt_write():

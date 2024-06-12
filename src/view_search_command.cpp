@@ -384,15 +384,15 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     RedisModule_ReplyWithArray(ctx , 6);  // id , count , result's   
 
     // Reply Add the new query ID  
-    RedisModule_ReplyWithCString(ctx, "query_id");
+    RedisModule_ReplyWithCString(ctx, REPLY_QUERY_ID_STR.c_str());
     RedisModule_ReplyWithLongLong(ctx, LAST_VIEW_SEARCH_IDENTIFIER);
 
     // Reply Add the response size
-    RedisModule_ReplyWithCString(ctx, "count");
+    RedisModule_ReplyWithCString(ctx, REPLY_COUNT_STR.c_str());
     RedisModule_ReplyWithLongLong(ctx, total_size_from_reply);
 
     // Reply key and values
-    RedisModule_ReplyWithCString(ctx, "result");
+    RedisModule_ReplyWithCString(ctx, REPLY_RESULT_STR.c_str());
 
     std::unordered_map<std::string, nlohmann::json> key_value_map;
     if (keys.size() != 0 ) {
@@ -440,20 +440,20 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
         // Return Values
         for (auto &k : keys){
-            RedisModule_ReplyWithCString(ctx, "key");
+            RedisModule_ReplyWithCString(ctx, REPLY_KEY_STR.c_str());
             RedisModule_ReplyWithStringBuffer(ctx, k.c_str() ,k.length() );
-            RedisModule_ReplyWithCString(ctx, "value");
+            RedisModule_ReplyWithCString(ctx, REPLY_VALUE_STR.c_str());
             RedisModule_ReplyWithArray(ctx , 4); // partial and data
-            RedisModule_ReplyWithCString(ctx, "path");
-            RedisModule_ReplyWithCString(ctx, "$");
+            RedisModule_ReplyWithCString(ctx, REPLY_PATH_STR.c_str());
+            RedisModule_ReplyWithCString(ctx, REPLY_DATA_ROOT_STR.c_str());
             if (key_value_map.count(k) == 0) {
-                RedisModule_ReplyWithCString(ctx, "data");
+                RedisModule_ReplyWithCString(ctx, REPLY_DATA_STR.c_str());
                 RedisModule_ReplyWithEmptyString(ctx);
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand JSON.MGET returned an element not matching key" );
                 continue;            
             }
             std::string val = key_value_map[k].dump();
-            RedisModule_ReplyWithCString(ctx, "data");
+            RedisModule_ReplyWithCString(ctx, REPLY_DATA_STR.c_str());
             RedisModule_ReplyWithStringBuffer(ctx, val.c_str() , val.length());
         }
     } else {
@@ -490,6 +490,79 @@ void Start_View_Search_Handler(RedisModuleCtx *ctx) {
 void View_Search_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
+
+        // Before search loop starts modify the query updates (unregister , unsubscribe and scroll)
+        // Unregister Clients
+        for (auto &unreg_client : d_h.unreg_wait_list) {
+            if(d_h.client_2_query.count(unreg_client) > 0) {
+                for (auto &id_2_query : d_h.client_2_query[unreg_client]) {
+                    d_h.unsub_wait_list.insert(id_2_query.first); // For queries add them to unsubscribe
+                }
+            }
+            d_h.client_2_query.erase(unreg_client);
+            // Check if the stream exists for this client
+            RedisModuleString* unreg_client_stream_name = RedisModule_CreateString(ctx, unreg_client.c_str(), unreg_client.length());
+            if( RedisModule_KeyExists(ctx, unreg_client_stream_name) ) { // NOT checking if it is stream
+                RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, unreg_client_stream_name, REDISMODULE_WRITE);
+                if (RedisModule_DeleteKey(stream_key) != REDISMODULE_OK ) {
+                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Unregister failed to delete the stream." ); // Rollback ?
+                }
+            }
+        }
+        d_h.unreg_wait_list.clear();
+
+        // Unsubscribe queries
+        for (auto &unsub_id : d_h.unsub_wait_list) {
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );
+            // client2query
+            for (auto &client_2_query_item : d_h.client_2_query) {
+                client_2_query_item.second.erase(unsub_id);
+            }
+            // query2value
+            d_h.query_2_value.erase(unsub_id);
+            // id2query
+            d_h.id_2_query.erase(unsub_id);
+
+            d_h.query_2_index.erase(unsub_id);
+        }
+        d_h.unsub_wait_list.clear();
+
+        // Process Scrolls
+        for (auto &scroll_triplet : d_h.scroll_wait_list) {
+            long long int query_id = std::get<0>(scroll_triplet);
+            long long int offset = std::get<1>(scroll_triplet);
+            long long int limit = std::get<2>(scroll_triplet);
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler Scrolling query id : " + std::to_string(query_id)  + " with offset: " + std::to_string(offset) + " and limit: " + std::to_string(limit) );
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler Query before scroll : " + d_h.id_2_query[query_id]);
+            for(auto &c2q : d_h.client_2_query) {
+                std::string current_client = c2q.first;
+                std::vector<std::string> query_vec = c2q.second[query_id];
+                for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
+                    //printf("Scroll arg -%s- \n" , query_vec[arg_index].c_str() );
+                    if (query_vec[arg_index] == "LIMIT") {
+                        if(query_vec.size() > arg_index + 2){
+                            //printf("Update scroll params arg \n");
+                            query_vec[arg_index+1] = std::to_string(offset);
+                            query_vec[arg_index+2] = std::to_string(limit);
+                            d_h.client_2_query[current_client][query_id] = query_vec; // Update global 
+                            std::string arguments_string = "";
+                            for(auto const& e : query_vec) arguments_string += (e + CCT_MODULE_QUERY_DELIMETER);
+                            if(arguments_string.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
+                                arguments_string.erase(arguments_string.length() - CCT_MODULE_QUERY_DELIMETER.length());
+                            }
+                            d_h.id_2_query[query_id] = arguments_string; // Update global 
+                            
+                        } else {
+                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: ." + std::to_string(query_id) );
+                            break;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        d_h.scroll_wait_list.clear();
+
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
         for (auto &client_2_query_item : d_h.client_2_query) {
@@ -616,7 +689,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             current_diff.new_key = new_key;
                             current_diff.old_value = old_value;
                             current_diff.new_value = new_value;
-                            current_diff.operation = "UPDATE";
+                            current_diff.operation = OPERATION_UPDATE.c_str();
                             current_diff.diff = json::diff(old_value, new_value);
                             diff_values.push_back(current_diff);
                         }else {
@@ -629,7 +702,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         current_diff.new_key = new_key;
                         current_diff.old_value = old_value;
                         current_diff.new_value = new_value;
-                        current_diff.operation = "DELETE";
+                        current_diff.operation = OPERATION_DELETE.c_str();
                         diff_values.push_back(current_diff);
                     }
                     diff_index++;
@@ -644,12 +717,12 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     current_diff.index = diff_index;
                     current_diff.new_key = new_key;
                     current_diff.new_value = new_value;
-                    current_diff.operation = "NEW";
+                    current_diff.operation = OPERATION_NEW.c_str();
                     diff_values.push_back(current_diff);                    
                     diff_index++;
                 }
 
-                                // Write new values 
+                // Write new values 
                 d_h.query_2_value[current_query_id] = new_values;
                 // Write new order 
                 d_h.query_2_index[current_query_id] = view_new_keys;
@@ -662,20 +735,22 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
 
                 if( diff_size != 0 ) { 
-                    int stream_write_size_total = 2 + 2 + 2;
+                    int stream_write_size_total = 2 + 2 + 2 + 2;
                     RedisModuleString* client_name = RedisModule_CreateString(ctx, current_client.c_str(), current_client.length());
                     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
                     RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size_total);
         
-                    xadd_params[0] = RedisModule_CreateString(ctx,"QUERY_ID", strlen("QUERY_ID"));
-                    xadd_params[1] = RedisModule_CreateStringFromLongLong(ctx, current_query_id);
+                    xadd_params[0] = RedisModule_CreateString(ctx, STREAM_CLIENT_ID_STR.c_str(), STREAM_CLIENT_ID_STR.length());
+                    xadd_params[1] = RedisModule_CreateString(ctx, current_client.c_str(), current_client.length());
 
+                    xadd_params[2] = RedisModule_CreateString(ctx, STREAM_QUERY_ID_STR.c_str(), STREAM_QUERY_ID_STR.length());
+                    xadd_params[3] = RedisModule_CreateStringFromLongLong(ctx, current_query_id);
         
-                    xadd_params[2] = RedisModule_CreateString(ctx,"QUERY", strlen("QUERY"));
-                    xadd_params[3] = RedisModule_CreateString(ctx, d_h.id_2_query[current_query_id].c_str(), d_h.id_2_query[current_query_id].length());
+                    xadd_params[4] = RedisModule_CreateString(ctx, STREAM_QUERY_STR.c_str(), STREAM_QUERY_STR.length());
+                    xadd_params[5] = RedisModule_CreateString(ctx, d_h.id_2_query[current_query_id].c_str(), d_h.id_2_query[current_query_id].length());
 
-                    xadd_params[4] = RedisModule_CreateString(ctx, "DIFF", strlen("DIFF"));
-                    xadd_params[5] = RedisModule_CreateString(ctx, diff_values_json_array.dump().c_str(), diff_values_json_array.dump().length());
+                    xadd_params[6] = RedisModule_CreateString(ctx, STREAM_DIFF_STR.c_str(), STREAM_DIFF_STR.length());
+                    xadd_params[7] = RedisModule_CreateString(ctx, diff_values_json_array.dump().c_str(), diff_values_json_array.dump().length());
 
                     int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_size_total/2);
                     if (stream_add_resp != REDISMODULE_OK) {
@@ -684,78 +759,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
         }
-        // Unregister Clients
-        for (auto &unreg_client : d_h.unreg_wait_list) {
-            if(d_h.client_2_query.count(unreg_client) > 0) {
-                for (auto &id_2_query : d_h.client_2_query[unreg_client]) {
-                    d_h.unsub_wait_list.insert(id_2_query.first); // For queries add them to unsubscribe
-                }
-            }
-            d_h.client_2_query.erase(unreg_client);
 
-            // Check if the stream exists for this client
-            RedisModuleString* unreg_client_stream_name = RedisModule_CreateString(ctx, unreg_client.c_str(), unreg_client.length());
-            if( RedisModule_KeyExists(ctx, unreg_client_stream_name) ) { // NOT checking if it is stream
-                RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, unreg_client_stream_name, REDISMODULE_WRITE);
-                if (RedisModule_DeleteKey(stream_key) != REDISMODULE_OK ) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Unregister failed to delete the stream." ); // Rollback ?
-                }
-            }
-        }
-        d_h.unreg_wait_list.clear();
-
-        // Unsubscribe queries
-        for (auto &unsub_id : d_h.unsub_wait_list) {
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );
-            // client2query
-            for (auto &client_2_query_item : d_h.client_2_query) {
-                client_2_query_item.second.erase(unsub_id);
-            }
-            // query2value
-            d_h.query_2_value.erase(unsub_id);
-            // id2query
-            d_h.id_2_query.erase(unsub_id);
-
-            d_h.query_2_index.erase(unsub_id);
-        }
-        d_h.unsub_wait_list.clear();
-
-        // Process Scrolls
-        for (auto &scroll_triplet : d_h.scroll_wait_list) {
-            long long int query_id = std::get<0>(scroll_triplet);
-            long long int offset = std::get<1>(scroll_triplet);
-            long long int limit = std::get<2>(scroll_triplet);
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler Scrolling query id : " + std::to_string(query_id)  + " with offset: " + std::to_string(offset) + " and limit: " + std::to_string(limit) );
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler Query before scroll : " + d_h.id_2_query[query_id]);
-            
-            for(auto &c2q : d_h.client_2_query) {
-                std::string current_client = c2q.first;
-                std::vector<std::string> query_vec = c2q.second[query_id];
-                for(long unsigned int arg_index = 0 ; arg_index < query_vec.size() ; arg_index++) {
-                    //printf("Scroll arg -%s- \n" , query_vec[arg_index].c_str() );
-                    if (query_vec[arg_index] == "LIMIT") {
-                        if(query_vec.size() > arg_index + 2){
-                            //printf("Update scroll params arg \n");
-                            query_vec[arg_index+1] = std::to_string(offset);
-                            query_vec[arg_index+2] = std::to_string(limit);
-                            d_h.client_2_query[current_client][query_id] = query_vec; // Update global 
-                            std::string arguments_string = "";
-                            for(auto const& e : query_vec) arguments_string += (e + CCT_MODULE_QUERY_DELIMETER);
-                            if(arguments_string.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
-                                arguments_string.erase(arguments_string.length() - CCT_MODULE_QUERY_DELIMETER.length());
-                            }
-                            d_h.id_2_query[query_id] = arguments_string; // Update global 
-                            
-                        } else {
-                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: ." + std::to_string(query_id) );
-                            break;
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-        d_h.scroll_wait_list.clear();
 
         RedisModule_ThreadSafeContextUnlock(ctx);
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
