@@ -58,14 +58,14 @@ def test_no_inner_key_with_scroll():
     assert query_id == 1
 
     response = client1.execute_command(f"VIEW.SEARCH.SCROLL 1 3 3")
-    print("\VIEW.SEARCH.SCROLL RESPONSE : " + str(response))
+    print("\nVIEW.SEARCH.SCROLL RESPONSE : " + str(response))
 
     #response = client1.execute_command(f"VIEW.SEARCH.SCROLL 1 6 3")
     #print("\VIEW.SEARCH.SCROLL RESPONSE : " + str(response))
     time.sleep(2)
 
     response = client1.execute_command(f"VIEW.SEARCH.SCROLL 1 6 3")
-    print("\VIEW.SEARCH.SCROLL RESPONSE : " + str(response))
+    print("\nVIEW.SEARCH.SCROLL RESPONSE : " + str(response))
 
 def test_no_inner_key_with_scroll_with_different_data_type():
     producer = connect_redis_with_start()
@@ -291,3 +291,91 @@ def test_sortby_and_inner_key_same_different_order_with_text_2():
 
     response = client1.execute_command("VIEW.SEARCH test_index * SORTBY aaa DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE 3: " + str(response))
+
+def test_complex_inner_key_1():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first 
+    schema = (TextField("$.field1", as_name="field1", sortable=True), TextField("$.field2", as_name="field2", sortable=True),  \
+              TextField("$.field3", as_name="field3", sortable=True) )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON)) 
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + "complexKEYWIthCamelCASE|data_D|null|null|permanent|null|" + str(i)
+        d = {}
+        d["field1"] = str(100-i)
+        d["field2"] = str(100+i)
+        d["field3"] = key
+        producer.json().set(key, Path.root_path(), d)
+    
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field3 DESC LIMIT 0 2")
+    print("\nVIEW.SEARCH SORTYBY INNERKEY: " + str(response))
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field1 DESC LIMIT 0 2 INNERKEY field3")
+    print("\nVIEW.SEARCH SORTYBY field1 INNERKEY GIVEN: " + str(response))
+
+def test_complex_inner_key_2():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first 
+    schema = (TextField("$.field3", as_name="field3", sortable=True), TextField("$.field2", as_name="field2", sortable=True),  \
+              TextField("$.field1", as_name="field1", sortable=True) )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON)) 
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + "complexKEYWIthCamelCASE|data_D|null|null|permanent|null|" + str(i)
+        d = {}
+        d["field1"] = str(100-i)
+        d["field2"] = str(100+i)
+        d["field3"] = key
+        producer.json().set(key, Path.root_path(), d)
+    
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field3 DESC LIMIT 0 2")
+    print("\nVIEW.SEARCH SORTYBY INNERKEY: " + str(response))
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field1 DESC LIMIT 0 2 INNERKEY field3")
+    print("\nVIEW.SEARCH SORTYBY field1 INNERKEY GIVEN: " + str(response))
+
+def test_complex_inner_key_3():
+    producer = connect_redis()
+    flush_db(producer) # clean all db first 
+    schema = (TextField("$.field3", as_name="field3", sortable=True), TextField("$.field2", as_name="field2", sortable=True),  \
+              TextField("$.field1", as_name="field1", sortable=True) , TextField("$.field4", as_name="field4", sortable=True)  )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON)) 
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + "complexKEYWIthCamelCASE|data_D|null|null|permanent|null|" + str(i)
+        d = {}
+        d["field1"] = key
+        d["field2"] = key
+        d["field3"] = key
+        d["field4"] = str(10)
+        producer.json().set(key, Path.root_path(), d)
+    
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field3 DESC LIMIT 0 2")
+    print("\nVIEW.SEARCH SORTYBY INNERKEY: " + str(response))
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field4 DESC LIMIT 0 2 INNERKEY field3")
+    print("\nVIEW.SEARCH SORTYBY field3 INNERKEY GIVEN: " + str(response))
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field4 DESC LIMIT 0 2 INNERKEY field2")
+    print("\nVIEW.SEARCH SORTYBY field2 INNERKEY GIVEN: " + str(response))
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY field4 DESC LIMIT 0 2 INNERKEY field1")
+    print("\nVIEW.SEARCH SORTYBY field1 INNERKEY GIVEN: " + str(response))

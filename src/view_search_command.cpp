@@ -40,7 +40,7 @@ std::string toUpperCase(const std::string &str) {
 }
 
 
-
+// NeedToAddDialect4 must be called at least once for the index before this function (yes it is a bad design and will be refactored) 
 bool AttributeExist(RedisModuleCtx *ctx, std::string index_name, std::string sortby_arg) {
     Data_Handler &d_h = Data_Handler::getInstance();
     // Next two line MUST match the part in NeedToAddDialect4 function
@@ -245,19 +245,16 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     }
 
     //Check dialect 4
-    bool needToAddDialect4 = NeedToAddDialect4(ctx, arguments_string_vector[0], sortby_arg);
+    bool needToAddDialect4SortBy = NeedToAddDialect4(ctx, arguments_string_vector[0], sortby_arg);
+    bool needToAddDialect4InnerKey = NeedToAddDialect4(ctx, arguments_string_vector[0], inner_key_arg);
     // After first dialect check we can check if the inner key exist (need to fill the cache for the index)
     bool inner_key_exist = AttributeExist(ctx, arguments_string_vector[0], inner_key_arg);
-    if (needToAddDialect4) {
-        if(inner_key_exist && inner_key_arg_found) {
-            needToAddDialect4 = NeedToAddDialect4(ctx, arguments_string_vector[0], inner_key_arg); // Optimize here , handle it with one call
-        }
-        if(needToAddDialect4) {
-            LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 4." );
-            arguments_string_vector.push_back("DIALECT");
-            arguments_string_vector.push_back("4");
-        }
+    if(inner_key_exist && inner_key_arg_found && needToAddDialect4InnerKey && needToAddDialect4SortBy) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 4." );
+        arguments_string_vector.push_back("DIALECT");
+        arguments_string_vector.push_back("4");
     }
+    
 
     if(inner_key_arg_found && !inner_key_exist ){
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand Given INNERKEY is not found in index , fallback to __key." );
@@ -353,7 +350,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
             if(!inner_key_equal_sortby) {
                 if(inner_reply_length == 4) {
-                    RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1); // getting first value which MUST be the key
+                    RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 3); // getting first value which MUST be the key
                     RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                     const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
                     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
