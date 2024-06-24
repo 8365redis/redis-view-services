@@ -383,3 +383,42 @@ def test_view_search_is_similar_with_ft_search_dialect_4():
 
     #assert view_search_response == ft_search_response
     
+
+def test_view_search_without_innerkey():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(10):
+        d = cct_prepare.generate_single_object(1000 , 2000 + i, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        producer.json().set(key, Path.root_path(), d)
+
+    # FIRST QUERY
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + " SORTBY User.ID LIMIT 0 2")
+    print("\nVIEW.SEARCH (aaa) result : " + str(response))
+
+    time.sleep(1.1)
+
+    # CHECK STREAM
+    from_stream = client1.xread(streams={cct_prepare.TEST_APP_NAME_1:1} )
+    print("\nSTREAM AFTER SCROLL : " +str(from_stream))
+    assert  str(from_stream) == "[]"
+
+
+    # SECOND QUERY
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "bbb" + "}" + " SORTBY User.ID LIMIT 0 2")
+    print("\nVIEW.SEARCH (bbb) result : " + str(response))
+
+    time.sleep(1.1)
+
+    # CHECK STREAM
+    from_stream = client1.xread(streams={cct_prepare.TEST_APP_NAME_1:1} )
+    print("\nSTREAM AFTER SCROLL : " +str(from_stream))
+    assert  str(from_stream) == "[]"
+

@@ -342,6 +342,8 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
 
+    const int innerkey_given_key_index = 3;
+    const int default_key_index = 1;
     // First get keys
     std::vector<std::string> keys;
     for (size_t i = 1; i < aggreate_reply_length; i++) {   // Starting from 1 as first one count
@@ -350,7 +352,12 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
             if(!inner_key_equal_sortby) {
                 if(inner_reply_length == 4) {
-                    RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 3); // getting first value which MUST be the key
+                    RedisModuleCallReply *inner_key_reply;
+                    if(inner_key_arg_found){
+                        inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, innerkey_given_key_index); 
+                    } else {
+                        inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, default_key_index);
+                    }
                     RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                     const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
                     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
@@ -566,10 +573,13 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             std::string current_client = client_2_query_item.first;
             for (auto &id_to_query_item : client_2_query_item.second) {
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
+                bool current_query_inner_key_given = true;
                 long long int current_query_id = id_to_query_item.first;
-
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : id_to_query_item.second){
+                    if(arg == "@__key"){
+                        current_query_inner_key_given = false;
+                    }
                     arguments.push_back(RedisModule_CreateString(ctx, arg.c_str(), arg.length()));
                     //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Arguments : " + arg );
                 }
@@ -582,6 +592,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     continue;
                 }
 
+                const int innerkey_given_key_index = 3;
+                const int default_key_index = 1;
                 // First get keys
                 const size_t aggreate_reply_length = RedisModule_CallReplyLength(reply);
                 std::vector<std::string> view_new_keys;
@@ -590,7 +602,12 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
                         size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
                         if(inner_reply_length == 4) {
-                            RedisModuleCallReply *inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, 1);
+                            RedisModuleCallReply *inner_key_reply;
+                            if(current_query_inner_key_given) {
+                                inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, innerkey_given_key_index);
+                            }else {
+                                inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, default_key_index);
+                            }
                             RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                             const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
                             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key (array 4): " + std::string(arr_elem_key_name_str) );
