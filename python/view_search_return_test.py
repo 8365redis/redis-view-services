@@ -398,7 +398,7 @@ def test_view_search_without_innerkey():
     # FIRST QUERY
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + " SORTBY User.ID LIMIT 0 2")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + " SORTBY 1 User.ID LIMIT 0 2")
     print("\nVIEW.SEARCH (aaa) result : " + str(response))
 
     time.sleep(1.1)
@@ -412,7 +412,7 @@ def test_view_search_without_innerkey():
     # SECOND QUERY
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "bbb" + "}" + " SORTBY User.ID LIMIT 0 2")
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "bbb" + "}" + " SORTBY 1 User.ID LIMIT 0 2")
     print("\nVIEW.SEARCH (bbb) result : " + str(response))
 
     time.sleep(1.1)
