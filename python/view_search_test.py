@@ -188,3 +188,161 @@ def test_view_search_multi_sort_6():
     assert query_id == 1
     response_size = response[5].count('key')
     assert response_size == 2
+
+
+def test_view_search_multi_sort_with_innerkey():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , key, "aaa")
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3 INNERKEY User.Address.ID")
+    print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
+    
+    query_id = int(response[1])
+    assert query_id == 1
+    first_key = response[5][1]
+    assert first_key == 'test_data:1'
+    second_key = response[5][5]
+    assert second_key == 'test_data:10'
+    third_key = response[5][9]
+    assert third_key == 'test_data:11'
+
+def test_view_search_multi_sort_with_innerkey_2():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , key, "aaa")
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID User.PASSPORT LIMIT 0 3 INNERKEY User.Address.ID")
+    
+    query_id = int(response[1])
+    assert query_id == 1
+    first_key = response[5][1]
+    assert first_key == 'test_data:1'
+    second_key = response[5][5]
+    assert second_key == 'test_data:10'
+    third_key = response[5][9]
+    assert third_key == 'test_data:11'
+
+def test_view_search_multi_sort_with_innerkey_3():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , key, "aaa")
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 3 User.ID ASC User.PASSPORT LIMIT 0 3 INNERKEY User.Address.ID")
+    
+    query_id = int(response[1])
+    assert query_id == 1
+    first_key = response[5][1]
+    assert first_key == 'test_data:1'
+    second_key = response[5][5]
+    assert second_key == 'test_data:10'
+    third_key = response[5][9]
+    assert third_key == 'test_data:11'
+
+def test_view_search_multi_sort_with_innerkey_4():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , key, "aaa")
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 4 User.ID ASC User.PASSPORT ASC LIMIT 0 3 INNERKEY User.Address.ID")
+    
+    query_id = int(response[1])
+    assert query_id == 1
+    first_key = response[5][1]
+    assert first_key == 'test_data:1'
+    second_key = response[5][5]
+    assert second_key == 'test_data:10'
+    third_key = response[5][9]
+    assert third_key == 'test_data:11'
+
+def test_view_search_multi_sort_with_innerkey_5():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , "111", key)
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 4 User.ID ASC User.Address.ID ASC LIMIT 0 3 INNERKEY User.PASSPORT")
+    
+    query_id = int(response[1])
+    assert query_id == 1
+    first_key = response[5][1]
+    assert first_key == 'test_data:1'
+    second_key = response[5][5]
+    assert second_key == 'test_data:10'
+    third_key = response[5][9]
+    assert third_key == 'test_data:11'
+
+def test_view_search_multi_sort_with_innerkey_6():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
+    cct_prepare.create_index(producer)
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
+        d = cct_prepare.generate_single_object(1000 , "111", key)
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 4 User.Address.ID ASC User.ID DESC LIMIT 0 3 INNERKEY User.PASSPORT")
+    
+    query_id = int(response[1])
+    assert query_id == 1
+    first_key = response[5][1]
+    assert first_key == 'test_data:1'
+    second_key = response[5][5]
+    assert second_key == 'test_data:10'
+    third_key = response[5][9]
+    assert third_key == 'test_data:11'
