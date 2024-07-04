@@ -41,4 +41,7 @@ const std::string STREAM_QUERY_ID_STR = "query_id";
 const std::string STREAM_QUERY_STR = "query";
 const std::string STREAM_DIFF_STR = "diff";
 
+const std::string COUNT_QUERY_STR = "count_query";
+const std::string COUNT_STR = "count";
+
 #endif /* MODULE_CONSTANTS_H */
