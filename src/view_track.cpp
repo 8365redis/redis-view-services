@@ -13,6 +13,7 @@
 #include "unregister_command.h"
 #include "view_count_command.h"
 #include "unsubscribe_command.h"
+#include "unsubscribe_count_command.h"
 #include "scroll_command.h"
 #include "heartbeat_command.h"
 #include "client_tracker.h"
@@ -90,6 +91,12 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         return REDISMODULE_ERR;
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.HEARTBEAT command created successfully.");
+    }
+
+    if (RedisModule_CreateCommand(ctx, "VIEW.COUNT.UNSUBSCRIBE", UnSubscribe_Count_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.COUNT.UNSUBSCRIBE command created successfully.");
     }
     
     Start_Search_Count_Handler(rdts_staticCtx);

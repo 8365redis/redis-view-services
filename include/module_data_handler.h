@@ -23,7 +23,7 @@ private:
 public:    
     Data_Handler(Data_Handler const&) = delete;
     void operator=(Data_Handler const&) = delete;
-    std::vector<Client_Size_Info> client_size_info; // Will change to map
+    std::unordered_map<std::string, std::vector<Client_Size_Info>> client_size_info; // Will change to map
     std::unordered_map<std::string, std::unordered_map<long long int, std::vector<std::string>>> client_2_query; // Query is vector of string
     // Value is key to value mapping , Query as a string this time , concentation of parameters with delimeter
     std::unordered_map<long long int, std::unordered_map<std::string, json>> query_2_value; // Query is query id
@@ -32,6 +32,7 @@ public:
     std::unordered_map<std::string, unsigned long long> client_2_last_seen; // client to last seen in ms
     std::unordered_map<std::string, std::string> index_attribute_2_type; // for example a.b = TAG , a.c = TEXT , a.c.d = NUMERIC
     std::set<long long int> unsub_wait_list;
+    std::vector<Client_Size_Info> unsub_count_wait_list;
     std::set<std::string> unreg_wait_list;
     std::set<std::string> registered_clients; 
     std::vector<std::tuple<long long int, long long int, long long int>> scroll_wait_list;

@@ -10,11 +10,39 @@
 
 using json = nlohmann::json;
 
-typedef struct  {
+struct Client_Size_Info {
     std::string stream_name;
     std::vector<std::string> arguments;
     long long int count;
-} Client_Size_Info;
+    std::size_t hash_value; // Add a hash value field
+
+
+    Client_Size_Info() : count(0), hash_value(0) {}
+
+    // Constructor to initialize and compute the hash value
+    Client_Size_Info(const std::string& name, const std::vector<std::string>& args, long long int cnt)
+        : stream_name(name), arguments(args), count(cnt) {
+        hash_value = computeHash();
+    }
+
+    std::size_t computeHash() const {
+        std::size_t hash = std::hash<std::string>{}(stream_name);
+        for (const auto& arg : arguments) {
+            hash ^= std::hash<std::string>{}(arg) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        }
+        return hash;
+    }
+
+    // Comparison operator using the hash value
+    bool operator==(const Client_Size_Info& other) const {
+        return hash_value == other.hash_value;
+    }
+
+    // Function to update the hash value
+    void updateHash() {
+        hash_value = computeHash();
+    }
+};
 
 static const int DEFAULT_DIALECT = 4; 
 
