@@ -23,7 +23,7 @@ private:
 public:    
     Data_Handler(Data_Handler const&) = delete;
     void operator=(Data_Handler const&) = delete;
-    std::unordered_map<std::string, std::vector<Client_Size_Info>> client_size_info; // Will change to map
+    std::unordered_map<std::string, std::unordered_map<unsigned long, Client_Size_Info>> client_size_info; 
     std::unordered_map<std::string, std::unordered_map<long long int, std::vector<std::string>>> client_2_query; // Query is vector of string
     // Value is key to value mapping , Query as a string this time , concentation of parameters with delimeter
     std::unordered_map<long long int, std::unordered_map<std::string, json>> query_2_value; // Query is query id

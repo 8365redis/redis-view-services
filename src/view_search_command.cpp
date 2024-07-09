@@ -462,7 +462,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = key_value_map;
     d_h.query_2_index[LAST_VIEW_SEARCH_IDENTIFIER] = keys;
 
-    LAST_VIEW_SEARCH_IDENTIFIER = LAST_VIEW_SEARCH_IDENTIFIER + 1;
+    LAST_VIEW_SEARCH_IDENTIFIER++;
 
 
     return REDISMODULE_OK;

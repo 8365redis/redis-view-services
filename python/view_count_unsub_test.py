@@ -14,7 +14,7 @@ def before_and_after_test():
     kill_redis()
     print("End")
 
-def test_view_count_return_single():
+def test_view_count_unsub_return_single():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
@@ -29,7 +29,9 @@ def test_view_count_return_single():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     count_command_args = cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}"
     response = client1.execute_command("VIEW.SEARCH.COUNT " + count_command_args)
-    assert response == 1
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == 1
 
     time.sleep(1.1)
 
@@ -59,8 +61,8 @@ def test_view_count_return_single():
 
 
     #UNSUB COUNT
-    resp = client1.execute_command("VIEW.COUNT.UNSUBSCRIBE " + count_command_args)
-    assert resp == "OK"
+    resp = client1.execute_command("VIEW.COUNT.UNSUBSCRIBE 1")
+    assert resp == "OK 1 unsubscribed"
     
     # ADD THIRD DATA
     d = cct_prepare.generate_single_object(1002 , 2002, "aaa")
@@ -92,7 +94,7 @@ def test_client_has_no_count():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
     #UNSUB COUNT
-    resp = client1.execute_command("VIEW.COUNT.UNSUBSCRIBE " + count_command_args)
+    resp = client1.execute_command("VIEW.COUNT.UNSUBSCRIBE 1213")
     assert resp == "Client doesnt have count operation"
 
 def test_client_has_no_matching_count():
@@ -110,7 +112,9 @@ def test_client_has_no_matching_count():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     count_command_args = cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}"
     response = client1.execute_command("VIEW.SEARCH.COUNT " + count_command_args)
-    assert response == 1
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == 1
 
     time.sleep(1.1)
 
@@ -140,8 +144,7 @@ def test_client_has_no_matching_count():
 
 
     #UNSUB COUNT
-    non_existing_count_command_args = cct_prepare.TEST_INDEX_NAME + " I DO NOT EXIST"
-    resp = client1.execute_command("VIEW.COUNT.UNSUBSCRIBE " + non_existing_count_command_args)
+    resp = client1.execute_command("VIEW.COUNT.UNSUBSCRIBE 999999" )
     assert resp == "Client doesnt have matching count operation"
     
     # ADD THIRD DATA

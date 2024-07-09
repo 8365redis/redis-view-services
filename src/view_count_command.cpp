@@ -7,6 +7,7 @@
 #include "module_utils.h"
 #include "module_constants.h"
 
+static unsigned long LAST_VIEW_COUNT_IDENTIFIER = 1;
 
 int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
@@ -22,8 +23,6 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     for(RedisModuleString* arg : arguments){
         arguments_arg.push_back(RedisModule_StringPtrLen(arg, NULL));
     }
-
-
 
     long long int current_count = 0;
     RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
@@ -41,16 +40,28 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
         }
     }
 
+    // Reply array sizing
+    RedisModule_ReplyWithArray(ctx , 6);  // id , count , result's   
+
+    // Reply Add the new query ID  
+    RedisModule_ReplyWithCString(ctx, COUNT_QUERY_ID_STR.c_str());
+    RedisModule_ReplyWithLongLong(ctx, LAST_VIEW_COUNT_IDENTIFIER);
+
+    // Reply Add the query 
+    std::string index_and_query = arguments_arg[0] + " " + arguments_arg[1]; 
+    RedisModule_ReplyWithCString(ctx, COUNT_QUERY_STR.c_str());
+    RedisModule_ReplyWithCString(ctx, index_and_query.c_str());
+
+    // Reply count  
+    RedisModule_ReplyWithCString(ctx, COUNT_STR.c_str());
     RedisModule_ReplyWithLongLong(ctx, current_count);
 
     std::string client_name = Get_Client_Name(ctx);
-    Client_Size_Info info(client_name, arguments_arg, current_count);
-    if( d_h.client_size_info.count(client_name) == 0 ) {
-        d_h.client_size_info[client_name] = { info };
-    } else {
-        d_h.client_size_info[client_name].push_back(info);
-    }
+    Client_Size_Info info(client_name, arguments_arg, current_count , LAST_VIEW_COUNT_IDENTIFIER);
+    
+    d_h.client_size_info[client_name].insert(std::make_pair(LAST_VIEW_COUNT_IDENTIFIER, info));
 
+    LAST_VIEW_COUNT_IDENTIFIER++;
     return REDISMODULE_OK;
 }
 
@@ -71,7 +82,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 continue;
             } else {
                 for (auto it = d_h.client_size_info[unsub_count_info.stream_name].begin(); it != d_h.client_size_info[unsub_count_info.stream_name].end(); ) {
-                    if ( (*it).hash_value == unsub_count_info.hash_value) {
+                    if ( (*it).first == unsub_count_info.id) {
                         it = d_h.client_size_info[unsub_count_info.stream_name].erase(it); // erase returns the next iterator
                     } else {
                         ++it; // only increment if not erased
@@ -83,7 +94,8 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
         for(auto &clients_info : d_h.client_size_info){
-            for (auto& info : clients_info.second){
+            for (auto& key2info : clients_info.second){
+                auto &info = key2info.second;
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler handling : " + info.stream_name );
                 long long int current_count = 0;
                 if(info.arguments.size() < 2){
