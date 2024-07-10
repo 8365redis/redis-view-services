@@ -28,7 +28,9 @@ def test_view_count_return_single():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
-    assert response == 1
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == 1
 
     time.sleep(1.1)
 
@@ -48,6 +50,7 @@ def test_view_count_return_single():
     print("After Second Data Stream : " + str(from_stream))
     assert len(from_stream[0][1]) == 1
     assert from_stream[0][1][0][1]['count'] == '2'
+    assert from_stream[0][1][0][1]['count_query_id'] == '1'
 
     time.sleep(1.1)
 
@@ -56,6 +59,7 @@ def test_view_count_return_single():
     #print("After Second Data Stream No Change: " + str(from_stream))
     assert len(from_stream[0][1]) == 1
     assert from_stream[0][1][0][1]['count'] == '2'
+    assert from_stream[0][1][0][1]['count_query_id'] == '1'
 
 
 
@@ -68,7 +72,9 @@ def test_view_count_return_none():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
-    assert response == 0
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == 0
 
 def test_view_count_return_multi_exceed():
     producer = connect_redis_with_start()
@@ -85,7 +91,9 @@ def test_view_count_return_multi_exceed():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
-    assert response == 100
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == 100
 
 def test_view_count_doesnt_write_stream():
     producer = connect_redis_with_start()
@@ -102,7 +110,9 @@ def test_view_count_doesnt_write_stream():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
-    assert response == 100
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == 100
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
@@ -130,7 +140,9 @@ def test_view_count_write_stream_only_once_after_delete_1():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
-    assert response == total
+    assert response[1] == 1
+    assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
+    assert response[5] == total
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
@@ -147,8 +159,8 @@ def test_view_count_write_stream_only_once_after_delete_1():
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     assert 1 == len(from_stream[0][1])
-    #print(str(from_stream[0][1][0][1]["count"]))
     assert "99" == from_stream[0][1][0][1]["count"]
+    assert from_stream[0][1][0][1]['count_query_id'] == '1'
 
     time.sleep(1.1)
 
@@ -156,6 +168,7 @@ def test_view_count_write_stream_only_once_after_delete_1():
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     assert 1 == len(from_stream[0][1])
     assert "99" == from_stream[0][1][0][1]["count"]
+    assert from_stream[0][1][0][1]['count_query_id'] == '1'
 
     time.sleep(1.1)
 
@@ -163,6 +176,7 @@ def test_view_count_write_stream_only_once_after_delete_1():
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     assert 1 == len(from_stream[0][1])
     assert "99" == from_stream[0][1][0][1]["count"]
+    assert from_stream[0][1][0][1]['count_query_id'] == '1'
 
 
 def test_view_count_write_stream_only_once_after_delete_2():
@@ -180,7 +194,9 @@ def test_view_count_write_stream_only_once_after_delete_2():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
-    assert response == total
+    assert response[1] == 1
+    assert response[3] == 'test_index *'
+    assert response[5] == total
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
@@ -233,7 +249,9 @@ def test_view_count_write_stream_only_once_after_delete_3():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
-    assert response == total
+    assert response[1] == 1
+    assert response[3] == 'test_index *'
+    assert response[5] == total
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
@@ -286,7 +304,9 @@ def test_view_count_write_stream_only_once_after_delete_4():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
-    assert response == total
+    assert response[1] == 1
+    assert response[3] == 'test_index *'
+    assert response[5] == total
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )

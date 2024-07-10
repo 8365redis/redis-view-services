@@ -123,16 +123,25 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                     }
                 }
 
+                const int stream_write_size = 6; // id , query, count ; per key and value
+                const int stream_write_field_num = stream_write_size / 2 ;
                 if(info.count != current_count) {
                     RedisModuleString* client_name = RedisModule_CreateString(ctx, info.stream_name.c_str(), info.stream_name.length());
                     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
-                    RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * 4);
-                    xadd_params[0] = RedisModule_CreateString(ctx, COUNT_QUERY_STR.c_str(), COUNT_QUERY_STR.length());
-                    xadd_params[1] = RedisModule_CreateString(ctx, index_and_query.c_str(), index_and_query.length());
-                    xadd_params[2] = RedisModule_CreateString(ctx, COUNT_STR.c_str(), COUNT_STR.length());
+                    RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * stream_write_size);
+
+                    xadd_params[0] = RedisModule_CreateString(ctx, COUNT_QUERY_ID_STR.c_str(), COUNT_QUERY_ID_STR.length());
+                     std::string id_str = std::to_string(info.id);
+                    xadd_params[1] = RedisModule_CreateString(ctx, id_str.c_str(), id_str.length());
+
+                    xadd_params[2] = RedisModule_CreateString(ctx, COUNT_QUERY_STR.c_str(), COUNT_QUERY_STR.length());
+                    xadd_params[3] = RedisModule_CreateString(ctx, index_and_query.c_str(), index_and_query.length());
+
                     std::string size_str = std::to_string(current_count);
-                    xadd_params[3] = RedisModule_CreateString(ctx, size_str.c_str(), size_str.length());
-                    int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, 2);
+                    xadd_params[4] = RedisModule_CreateString(ctx, COUNT_STR.c_str(), COUNT_STR.length());
+                    xadd_params[5] = RedisModule_CreateString(ctx, size_str.c_str(), size_str.length());
+
+                    int stream_add_resp = RedisModule_StreamAdd( stream_key, REDISMODULE_STREAM_ADD_AUTOID, NULL, xadd_params, stream_write_field_num);
                     if (stream_add_resp != REDISMODULE_OK) {
                         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed to create the stream." );
                     }
