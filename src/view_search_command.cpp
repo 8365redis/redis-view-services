@@ -212,11 +212,11 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         }
         if (sortby_arg_found == false && arg_str == "SORTBY") {
             sortby_arg_found = true;
-            if(i+1 < arguments_redis_string_vector.size()){
-                sortby_arg = RedisModule_StringPtrLen(arguments_redis_string_vector[i+1], NULL);
-            }
             if(i+2 < arguments_redis_string_vector.size()){
-                sortby_arg_order = RedisModule_StringPtrLen(arguments_redis_string_vector[i+2], NULL);
+                sortby_arg = RedisModule_StringPtrLen(arguments_redis_string_vector[i+2], NULL);
+            }
+            if(i+3 < arguments_redis_string_vector.size()){
+                sortby_arg_order = RedisModule_StringPtrLen(arguments_redis_string_vector[i+3], NULL);
                 if(toUpperCase(sortby_arg_order) != "DESC" && toUpperCase(sortby_arg_order) != "ASC") {
                     sortby_arg_order = "ASC"; // DEFAULT
                 }
@@ -246,10 +246,10 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     }
 
     //Check dialect 4
-    bool needToAddDialect4SortBy = NeedToAddDialect4(ctx, arguments_string_vector[0], sortby_arg);
-    bool needToAddDialect4InnerKey = NeedToAddDialect4(ctx, arguments_string_vector[0], inner_key_arg);
+    bool needToAddDialect4SortBy = NeedToAddDialect4(ctx, arguments_string_vector[0], sortby_arg); 
+    bool needToAddDialect4InnerKey = NeedToAddDialect4(ctx, arguments_string_vector[0], inner_key_arg); 
     // After first dialect check we can check if the inner key exist (need to fill the cache for the index)
-    bool inner_key_exist = AttributeExist(ctx, arguments_string_vector[0], inner_key_arg);
+    bool inner_key_exist = AttributeExist(ctx, arguments_string_vector[0], inner_key_arg); 
     if(inner_key_exist && inner_key_arg_found && needToAddDialect4InnerKey && needToAddDialect4SortBy) {
         LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "View_Search_RedisCommand adding query DiALECT 4." );
         arguments_string_vector.push_back("DIALECT");
@@ -263,7 +263,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     }
 
 
-    //convert to aggragate
+    //convert to aggregate
     int sortby_arg_count = 0;
     for (std::size_t i=0; i<arguments_string_vector.size(); i++) {
         if(sortby_arg_count > 0 ) {
@@ -452,9 +452,9 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         std::unordered_map<long long int, std::vector<std::string>> first_entry_dict;
         first_entry_dict[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_converted_vector;
         d_h.client_2_query[client_name_str] = first_entry_dict;
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand clients first query." );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand clients first query." );
     }else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand client has previous queries." );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand client has previous queries." );
         d_h.client_2_query[client_name_str][LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_converted_vector;
     }
 
@@ -550,6 +550,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
         }
         d_h.scroll_wait_list.clear();
 
+        const auto search_handler_start = std::chrono::steady_clock::now();
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
         for (auto &client_2_query_item : d_h.client_2_query) {
@@ -568,12 +569,16 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
                 
                 LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler calling FT.AGGREGATE with args : " + d_h.id_2_query[current_query_id] );
+                const auto aggregate_start = std::chrono::steady_clock::now();
                 // Forward Search
                 RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.AGGREGATE", "v", arguments.begin(), arguments.size());
                 if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
                     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler FT.AGGREGATE failed." );
                     continue;
                 }
+                const auto aggregate_end = std::chrono::steady_clock::now();
+                std::chrono::duration<double> aggregate_elapsed = aggregate_end - aggregate_start;
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "FT.AGGREGATE Spend Time : " + std::to_string(aggregate_elapsed.count()) );
 
                 const int default_key_index = 1;
                 // First get keys
@@ -741,9 +746,11 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
         }
-
-
         RedisModule_ThreadSafeContextUnlock(ctx);
+        const auto search_handler_end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed = search_handler_end - search_handler_start;
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search Handler Spend Time : " + std::to_string(elapsed.count()) );
+
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
 }

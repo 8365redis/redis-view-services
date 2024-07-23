@@ -6,6 +6,7 @@
 #include "json.hpp"
 #include "redismodule.h"
 #include "logger.h"
+#include "test_command.h"
 #include "view_search_command.h"
 #include "module_constants.h"
 #include "module_utils.h"
@@ -97,6 +98,12 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         return REDISMODULE_ERR;
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.COUNT.UNSUBSCRIBE command created successfully.");
+    }
+
+    if (RedisModule_CreateCommand(ctx, "VIEW.TEST", Test_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.TEST command created successfully.");
     }
     
     Start_Search_Count_Handler(rdts_staticCtx);

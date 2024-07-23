@@ -6,9 +6,9 @@ VERSION := $(shell git describe --abbrev=0 --tags)
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
-    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D _DEBUG -O0
+    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -lhiredis -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D _DEBUG -O0
 else
-    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D NDEBUG -O3
+    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -lhiredis -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D NDEBUG -O3
 endif
 
 CC = g++
@@ -36,8 +36,9 @@ clean:
 	rm -rf  $(SRCDIR)/*.o $(BINDIR)/*.so 
 	rm -f dump.rdb
 
+# fix this one to change load module
 load: 
-	redis-stack-server --loadmodule $(CURRENTDIR)/$(BINDIR)/cct-view.so
+	redis-stack-server 
 
 test:
 	pytest -rP
