@@ -36,6 +36,7 @@ public:
     std::set<std::string> unreg_wait_list;
     std::set<std::string> registered_clients; 
     std::vector<std::tuple<long long int, long long int, long long int>> scroll_wait_list;
+    std::unordered_map<long long int, std::string> id_2_innerkey_prefix; // Query ID : innerkey prefix if given
 };
 
 #endif /* MODULE_DATA_HANDLER_H */

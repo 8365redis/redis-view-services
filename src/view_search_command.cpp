@@ -227,12 +227,20 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
     // INNERKEY MUST be last 2 parameters
     std::string inner_key_arg = "";
+    std::string inner_key_arg_prefix = "";
     bool inner_key_arg_found = false;
-    if(arguments_string_vector.size() > 2 && arguments_string_vector[arguments_string_vector.size() - 2] == "INNERKEY") {
+
+    // First check the case innerkey has prefix argument present
+    if(arguments_string_vector.size() > 3 && arguments_string_vector[arguments_string_vector.size() - 3] == "INNERKEY") {
+        inner_key_arg = arguments_string_vector[arguments_string_vector.size() - 2];
+        inner_key_arg_prefix = arguments_string_vector[arguments_string_vector.size() - 1];
+        inner_key_arg_found = true;
+        arguments_string_vector.erase(arguments_string_vector.end() - 3, arguments_string_vector.end());
+
+    } else if(arguments_string_vector.size() > 2 && arguments_string_vector[arguments_string_vector.size() - 2] == "INNERKEY") { // now without prefix argument
         inner_key_arg = arguments_string_vector[arguments_string_vector.size() - 1];
         inner_key_arg_found = true;
-        arguments_string_vector.pop_back(); // Need to delete last two params
-        arguments_string_vector.pop_back(); // Not a duplicate line , this is faster
+        arguments_string_vector.erase(arguments_string_vector.end() - 2, arguments_string_vector.end());
     }
 
     if(sortby_arg_found == false || sortby_arg == ""){
@@ -362,8 +370,8 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             }
             RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
             const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
-            keys.push_back(arr_elem_key_name_str);
+            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(inner_key_arg_prefix + arr_elem_key_name_str) );
+            keys.push_back((inner_key_arg_prefix + arr_elem_key_name_str));
         }
     }
 
@@ -461,6 +469,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     d_h.id_2_query[LAST_VIEW_SEARCH_IDENTIFIER] = arguments_string_converted;
     d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = key_value_map;
     d_h.query_2_index[LAST_VIEW_SEARCH_IDENTIFIER] = keys;
+    d_h.id_2_innerkey_prefix[LAST_VIEW_SEARCH_IDENTIFIER] = inner_key_arg_prefix;
 
     LAST_VIEW_SEARCH_IDENTIFIER++;
 
@@ -559,6 +568,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
                 bool current_query_inner_key_given = true;
                 long long int current_query_id = id_to_query_item.first;
+                std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[current_query_id];
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : id_to_query_item.second){
                     if(arg == "@__key"){
@@ -596,8 +606,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         }
                         RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                         const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-                        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(arr_elem_key_name_str) );
-                        view_new_keys.push_back(arr_elem_key_name_str);
+                        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(inner_key_arg_prefix + arr_elem_key_name_str) );
+                        view_new_keys.push_back(inner_key_arg_prefix + arr_elem_key_name_str);
                     }
                 }
 

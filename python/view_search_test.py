@@ -28,7 +28,7 @@ def test_view_search_return_single():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1
@@ -50,7 +50,7 @@ def test_view_search_return_multi():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1
@@ -72,7 +72,7 @@ def test_view_search_multi_sort_1():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 2 User.ID User.PASSPORT LIMIT 0 2")
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1
@@ -94,7 +94,7 @@ def test_view_search_multi_sort_2():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 3 User.ID ASC User.PASSPORT LIMIT 0 2")
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1
@@ -116,7 +116,7 @@ def test_view_search_multi_sort_3():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 4 User.ID ASC User.PASSPORT DESC LIMIT 0 2")
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1
@@ -138,7 +138,7 @@ def test_view_search_multi_sort_4():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 5 User.ID ASC User.PASSPORT DESC User.Address.ID  LIMIT 0 2")
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1
@@ -160,7 +160,7 @@ def test_view_search_multi_sort_5():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 6 User.ID ASC User.PASSPORT DESC User.Address.ID ASC LIMIT 0 2")
-    print(str(response))
+    #print(str(response))
 
     query_id = int(response[1])
     assert query_id == 1

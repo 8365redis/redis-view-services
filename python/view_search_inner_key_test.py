@@ -31,7 +31,7 @@ def test_no_inner_key():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER app1")
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
     query_id = int(response[1])
     assert query_id == 1
@@ -582,3 +582,36 @@ def test_result_order_with_inner_key_4():
     assert second_key == 'test_data:1'
     third_key = response[5][9]
     assert third_key == 'test_data:10'
+
+
+def test_innerkey_prefix_1():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first 
+    schema = (TextField("$.aaa", as_name="aaa", sortable=True), TextField("$.bbb", as_name="bbb", sortable=True),  \
+              TextField("$.ccc", as_name="ccc", sortable=True) , TextField("$.ddd", as_name="ddd", sortable=True)  )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON)) 
+
+    # ADD INITIAL DATA
+    for i in range(20):
+        key = i
+        d = {}
+        d["aaa"] = str(i)
+        d["bbb"] = str(key)
+        d["ccc"] = str(key)
+        d["ddd"] = str(10)
+        producer.json().set(cct_prepare.TEST_INDEX_PREFIX + str(key), Path.root_path(), d)
+    
+
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER app1")
+
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 aaa DESC LIMIT 0 3 INNERKEY ccc " + cct_prepare.TEST_INDEX_PREFIX)
+    print("\nVIEW.SEARCH SORTYBY field3 INNERKEY GIVEN: " + str(response))
+
+    first_key = response[5][1]
+    assert first_key == 'test_data:9'
+    second_key = response[5][5]
+    assert second_key == 'test_data:8'
+    third_key = response[5][9]
+    assert third_key == 'test_data:7'
