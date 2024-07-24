@@ -18,7 +18,8 @@ int UnRegister_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int a
     std::string client_to_unregister = RedisModule_StringPtrLen( unregister_client, NULL);
 
     if(Unregister_Client(ctx, client_to_unregister) == REDISMODULE_ERR) {
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
+        RedisModule_ReplyWithSimpleString(ctx, "Unregister failed");
+        return REDISMODULE_ERR;
     }
     
     RedisModule_ReplyWithSimpleString(ctx, "OK");
@@ -40,7 +41,8 @@ int Unregister_Client(RedisModuleCtx *ctx, std::string client_to_unregister) {
     }
 
     d_h.registered_clients.erase(client_to_unregister);
-    d_h.unreg_wait_list.insert(client_to_unregister);
+    d_h.unreg_search_wait_list.insert(client_to_unregister);
+    d_h.unreg_count_wait_list.insert(client_to_unregister);
     d_h.client_2_last_seen.erase(client_to_unregister);
 
     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Unregister_Client is successful for client : " +  client_to_unregister);

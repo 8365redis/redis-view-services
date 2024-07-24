@@ -489,7 +489,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
 
         // Before search loop starts modify the query updates (unregister , unsubscribe and scroll)
         // Unregister Clients
-        for (auto &unreg_client : d_h.unreg_wait_list) {
+        for (auto &unreg_client : d_h.unreg_search_wait_list) {
             if(d_h.client_2_query.count(unreg_client) > 0) {
                 for (auto &id_2_query : d_h.client_2_query[unreg_client]) {
                     d_h.unsub_wait_list.insert(id_2_query.first); // For queries add them to unsubscribe
@@ -505,7 +505,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
         }
-        d_h.unreg_wait_list.clear();
+        d_h.unreg_search_wait_list.clear();
 
         // Unsubscribe queries
         for (auto &unsub_id : d_h.unsub_wait_list) {

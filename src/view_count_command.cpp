@@ -28,6 +28,7 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     RedisModuleCallReply *reply = RedisModule_Call(ctx,"FT.SEARCH", "v", arguments.begin(), arguments.size());
     if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed." );
+        RedisModule_ReplyWithSimpleString(ctx, "Forwarded search failed");
         return REDISMODULE_ERR;
     } else {
         RedisModuleCallReply *key_int_reply = RedisModule_CallReplyArrayElement(reply, 0);
@@ -36,6 +37,7 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
             LOG(ctx, REDISMODULE_LOGLEVEL_VERBOSE , "Search_Count_RedisCommand get size : " + std::to_string(current_count));
         }else {
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed to get reply current_count.");
+            RedisModule_ReplyWithSimpleString(ctx, "Reply doesnt have count");
             return REDISMODULE_ERR;
         }
     }
@@ -75,7 +77,18 @@ void Start_Search_Count_Handler(RedisModuleCtx *ctx) {
 void Search_Count_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
-        // First unsub the count
+        // First handle unregistered clients
+        for (auto &unreg_count_client : d_h.unreg_count_wait_list) {
+            if(d_h.client_size_info.count(unreg_count_client) == 0){
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_Handler Unreg for count not found for client : " + unreg_count_client);
+                continue;
+            } else {
+                d_h.client_size_info.erase(unreg_count_client);
+            }          
+        }
+        d_h.unreg_count_wait_list.clear();
+
+        // Second unsub the count
         for(const auto &unsub_count_info : d_h.unsub_count_wait_list){
             if(d_h.client_size_info.count(unsub_count_info.stream_name) == 0){
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_Handler Unsub for count not found for client : " + unsub_count_info.stream_name);
@@ -90,6 +103,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 }
             }
         }
+        d_h.unsub_count_wait_list.clear();
 
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
