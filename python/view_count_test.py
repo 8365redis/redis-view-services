@@ -27,7 +27,7 @@ def test_view_count_return_single():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == 1
@@ -71,7 +71,7 @@ def test_view_count_return_none():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == 0
@@ -90,7 +90,7 @@ def test_view_count_return_multi_exceed():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == 100
@@ -109,7 +109,7 @@ def test_view_count_doesnt_write_stream():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == 100
@@ -139,7 +139,7 @@ def test_view_count_write_stream_only_once_after_delete_1():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}")
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == total
@@ -193,7 +193,7 @@ def test_view_count_write_stream_only_once_after_delete_2():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
     assert response[1] == 1
     assert response[3] == 'test_index *'
     assert response[5] == total
@@ -248,7 +248,7 @@ def test_view_count_write_stream_only_once_after_delete_3():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
     assert response[1] == 1
     assert response[3] == 'test_index *'
     assert response[5] == total
@@ -303,7 +303,7 @@ def test_view_count_write_stream_only_once_after_delete_4():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
+    response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " * ")
     assert response[1] == 1
     assert response[3] == 'test_index *'
     assert response[5] == total

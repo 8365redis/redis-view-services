@@ -64,10 +64,10 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.UNREGISTER command created successfully.");
     }
 
-    if (RedisModule_CreateCommand(ctx,"VIEW.SEARCH.COUNT", Search_Count_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+    if (RedisModule_CreateCommand(ctx,"VIEW.COUNT", Search_Count_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     } else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.SEARCH.COUNT command created successfully.");
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.COUNT command created successfully.");
     }
 
     if (RedisModule_CreateCommand(ctx,"VIEW.SEARCH", View_Search_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {

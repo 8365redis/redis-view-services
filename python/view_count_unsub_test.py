@@ -28,7 +28,7 @@ def test_view_count_unsub_return_single():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     count_command_args = cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}"
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + count_command_args)
+    response = client1.execute_command("VIEW.COUNT " + count_command_args)
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == 1
@@ -111,7 +111,7 @@ def test_client_has_no_matching_count():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     count_command_args = cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}"
-    response = client1.execute_command("VIEW.SEARCH.COUNT " + count_command_args)
+    response = client1.execute_command("VIEW.COUNT " + count_command_args)
     assert response[1] == 1
     assert response[3] == 'test_index @User\\.PASSPORT:{aaa}'
     assert response[5] == 1
