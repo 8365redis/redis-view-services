@@ -6,9 +6,9 @@ VERSION := $(shell git describe --abbrev=0 --tags)
 
 DEBUG ?= 0
 ifeq ($(DEBUG), 1)
-    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -lhiredis -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D _DEBUG -O0
+    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -Wl,-Bstatic -L$(LIBSDIR) -lhiredis -Wl,-Bdynamic -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D _DEBUG -O0
 else
-    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -lhiredis -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D NDEBUG -O3
+    CPPFLAGS = -Wall -g -fPIC -std=c++11 -I$(INCDIR) -Wl,-Bstatic -L$(LIBSDIR) -lhiredis -Wl,-Bdynamic -D VIEW_MODULE_VERSION=\"$(VERSION)\" -D NDEBUG -O3
 endif
 
 CC = g++
@@ -17,6 +17,7 @@ LDFLAGS = -shared -o
 BINDIR = bin
 SRCDIR = src
 INCDIR = include
+LIBSDIR = libs
 
 SOURCES = $(shell echo src/*.cpp)
 HEADERS = $(shell echo include/*.h)
