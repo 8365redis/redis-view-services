@@ -1,6 +1,7 @@
 #include "register_command.h"
 #include "logger.h"
 #include "module_data_handler.h"
+#include "module_monitoring.h"
 
 int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
     RedisModule_AutoMemory(ctx);
@@ -36,6 +37,9 @@ int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
             return RedisModule_ReplyWithError(ctx, "Can not delete previous stream");
         }
     }
+
+    //Create monitoring ts
+    Create_Client_Monitoring(ctx, client_name_str);
 
     // Create a new stream
     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);

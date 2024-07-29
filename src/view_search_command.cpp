@@ -6,6 +6,7 @@
 #include "module_constants.h"
 #include "module_utils.h"
 #include "module_data_handler.h"
+#include "module_monitoring.h"
 
 using json = nlohmann::json;
 
@@ -193,7 +194,7 @@ bool NeedToAddDialect4(RedisModuleCtx *ctx, std::string index_name, std::string 
 
 int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
-
+    auto latency_metric_start = Get_Start_Time();
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand called." );
 
     Data_Handler &d_h = Data_Handler::getInstance();
@@ -473,7 +474,9 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
     LAST_VIEW_SEARCH_IDENTIFIER++;
 
-
+    auto latency_metric = Get_Delta_Time(latency_metric_start);
+    Add_Metric(ctx, (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + client_name_str), std::to_string(latency_metric));
+    Add_Count_Metric(ctx, (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + client_name_str));
     return REDISMODULE_OK;
 }
 
@@ -496,6 +499,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
             d_h.client_2_query.erase(unreg_client);
+            Reset_Count(ctx , (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + unreg_client)); // Clear its count
             // Check if the stream exists for this client
             RedisModuleString* unreg_client_stream_name = RedisModule_CreateString(ctx, unreg_client.c_str(), unreg_client.length());
             if( RedisModule_KeyExists(ctx, unreg_client_stream_name) ) { // NOT checking if it is stream
@@ -505,20 +509,21 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
         }
-        d_h.unreg_search_wait_list.clear();
+        d_h.unreg_search_wait_list.clear(); 
 
         // Unsubscribe queries
         for (auto &unsub_id : d_h.unsub_wait_list) {
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );
             // client2query
             for (auto &client_2_query_item : d_h.client_2_query) {
+                Add_Count_Metric(ctx , (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX+client_2_query_item.first), false); //  if it is here it means it is not unreg just unsub 
                 client_2_query_item.second.erase(unsub_id);
             }
             // query2value
             d_h.query_2_value.erase(unsub_id);
             // id2query
             d_h.id_2_query.erase(unsub_id);
-
+            // query2index
             d_h.query_2_index.erase(unsub_id);
         }
         d_h.unsub_wait_list.clear();

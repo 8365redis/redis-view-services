@@ -1,11 +1,14 @@
 #include <chrono>
+#include <string>
 
+#include "module_utils.h"
 #include "test_command.h"
+#include "module_monitoring.h"
 
 #include <hiredis/hiredis.h>
 
 int Test_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
-
+    /*
     redisReply *reply;
     redisContext *c;
 
@@ -20,7 +23,6 @@ int Test_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
         return 1;
     }
 
-    /* PINGs */
     start = std::chrono::high_resolution_clock::now();
     reply = (redisReply*) redisCommand(c,"FT.AGGREGATE test_index * SORTBY 4 @field1 DESC @field4 ASC LIMIT 0 10");
     end = std::chrono::high_resolution_clock::now();
@@ -30,6 +32,12 @@ int Test_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     freeReplyObject(reply);
 
     redisFree(c);
+    */
+
+    //Create_Metric_Stream(ctx, );
+
+    std::string client_name_str = Get_Client_Name(ctx);
+    Create_Client_Monitoring(ctx, client_name_str);
     
     RedisModule_ReplyWithSimpleString(ctx, "OK");
     return REDISMODULE_OK;

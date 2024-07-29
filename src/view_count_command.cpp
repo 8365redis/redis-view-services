@@ -6,11 +6,13 @@
 #include "logger.h"
 #include "module_utils.h"
 #include "module_constants.h"
+#include "module_monitoring.h"
 
 static unsigned long LAST_VIEW_COUNT_IDENTIFIER = 1;
 
 int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     RedisModule_AutoMemory(ctx);
+    auto latency_metric_start = Get_Start_Time();
 
     Data_Handler &d_h = Data_Handler::getInstance();
 
@@ -64,6 +66,11 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     d_h.client_size_info[client_name].insert(std::make_pair(LAST_VIEW_COUNT_IDENTIFIER, info));
 
     LAST_VIEW_COUNT_IDENTIFIER++;
+
+    std::string client_name_str = Get_Client_Name(ctx);
+    auto latency_metric = Get_Delta_Time(latency_metric_start);
+    Add_Metric(ctx, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str), std::to_string(latency_metric));
+    Add_Count_Metric(ctx, (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + client_name_str));
     return REDISMODULE_OK;
 }
 
@@ -84,6 +91,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 continue;
             } else {
                 d_h.client_size_info.erase(unreg_count_client);
+                Reset_Count(ctx , (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX+unreg_count_client)); // Clear its count
             }          
         }
         d_h.unreg_count_wait_list.clear();
@@ -97,6 +105,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 for (auto it = d_h.client_size_info[unsub_count_info.stream_name].begin(); it != d_h.client_size_info[unsub_count_info.stream_name].end(); ) {
                     if ( (*it).first == unsub_count_info.id) {
                         it = d_h.client_size_info[unsub_count_info.stream_name].erase(it); // erase returns the next iterator
+                        Add_Count_Metric(ctx , (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX+unsub_count_info.stream_name), false); // Decrease its count
                     } else {
                         ++it; // only increment if not erased
                     }
