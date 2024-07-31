@@ -38,9 +38,6 @@ int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
         }
     }
 
-    //Create monitoring ts
-    Create_Client_Monitoring(ctx, client_name_str);
-
     // Create a new stream
     RedisModuleKey *stream_key = RedisModule_OpenKey(ctx, client_name, REDISMODULE_WRITE);
     RedisModuleString **xadd_params = (RedisModuleString **) RedisModule_Alloc(sizeof(RedisModuleString *) * 2);

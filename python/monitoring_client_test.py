@@ -544,3 +544,18 @@ def test_search_latency_metric_is_added_multi():
     last_value = client1.execute_command("TS.GET " + (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1))
     assert last_value
     print(str(last_value))
+
+
+def test_add_data_and_queries():
+    producer = connect_redis_with_start()
+    time.sleep(1)
+    flush_db(producer) # clean all db first
+    time.sleep(1)
+    cct_prepare.create_index(producer)
+    total = 10000
+    # ADD INITIAL DATA
+    for i in range(1, total):
+        d = cct_prepare.generate_single_object(1000 + i, 2000 + i, "aaa")
+        key = cct_prepare.TEST_INDEX_PREFIX + str(i)
+        producer.json().set(key, Path.root_path(), d)
+

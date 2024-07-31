@@ -198,6 +198,11 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand called." );
 
     Data_Handler &d_h = Data_Handler::getInstance();
+
+    if(d_h.registered_clients.count(Get_Client_Name(ctx)) == 0 ) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed , client is not registered." );
+        return RedisModule_ReplyWithError(ctx, "Not registered client");       
+    }
     
     std::vector<RedisModuleString*> arguments_redis_string_vector(argv+1, argv + argc);
     std::vector<std::string> arguments_string_vector;
@@ -319,11 +324,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
     std::string client_name_str = Get_Client_Name(ctx);
 
-    std::string arguments_string_converted = "";
-    for(auto const& e : arguments_string_converted_vector) arguments_string_converted += (e + CCT_MODULE_QUERY_DELIMETER);
-    if(arguments_string_converted.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
-        arguments_string_converted.erase(arguments_string_converted.length() - CCT_MODULE_QUERY_DELIMETER.length());
-    }
+    std::string arguments_string_converted = Vector_2_String(arguments_string_converted_vector);
 
     int new_argc = arguments_string_converted_vector.size();
     RedisModuleString **new_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * new_argc);
@@ -475,8 +476,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     LAST_VIEW_SEARCH_IDENTIFIER++;
 
     auto latency_metric = Get_Delta_Time(latency_metric_start);
-    Add_Metric(ctx, (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + client_name_str), std::to_string(latency_metric));
-    Add_Count_Metric(ctx, (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + client_name_str));
+    Add_Metric(ctx, (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + arguments_string_converted), std::to_string(latency_metric) , Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_SEARCH));
     return REDISMODULE_OK;
 }
 
@@ -489,7 +489,7 @@ void Start_View_Search_Handler(RedisModuleCtx *ctx) {
 void View_Search_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
-
+        auto latency_metric_total_handler_start = Get_Start_Time();
         // Before search loop starts modify the query updates (unregister , unsubscribe and scroll)
         // Unregister Clients
         for (auto &unreg_client : d_h.unreg_search_wait_list) {
@@ -499,7 +499,6 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
             }
             d_h.client_2_query.erase(unreg_client);
-            Reset_Count(ctx , (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + unreg_client)); // Clear its count
             // Check if the stream exists for this client
             RedisModuleString* unreg_client_stream_name = RedisModule_CreateString(ctx, unreg_client.c_str(), unreg_client.length());
             if( RedisModule_KeyExists(ctx, unreg_client_stream_name) ) { // NOT checking if it is stream
@@ -516,7 +515,6 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );
             // client2query
             for (auto &client_2_query_item : d_h.client_2_query) {
-                Add_Count_Metric(ctx , (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX+client_2_query_item.first), false); //  if it is here it means it is not unreg just unsub 
                 client_2_query_item.second.erase(unsub_id);
             }
             // query2value
@@ -546,13 +544,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             query_vec[arg_index+1] = std::to_string(offset);
                             query_vec[arg_index+2] = std::to_string(limit);
                             d_h.client_2_query[current_client][query_id] = query_vec; // Update global 
-                            std::string arguments_string = "";
-                            for(auto const& e : query_vec) arguments_string += (e + CCT_MODULE_QUERY_DELIMETER);
-                            if(arguments_string.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
-                                arguments_string.erase(arguments_string.length() - CCT_MODULE_QUERY_DELIMETER.length());
-                            }
+                            std::string arguments_string = Vector_2_String(query_vec);
                             d_h.id_2_query[query_id] = arguments_string; // Update global 
-                            
                         } else {
                             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: ." + std::to_string(query_id) );
                             break;
@@ -564,12 +557,12 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
         }
         d_h.scroll_wait_list.clear();
 
-        const auto search_handler_start = std::chrono::steady_clock::now();
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
         for (auto &client_2_query_item : d_h.client_2_query) {
             std::string current_client = client_2_query_item.first;
             for (auto &id_to_query_item : client_2_query_item.second) {
+                auto latency_metric_current_query_start = Get_Start_Time();
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
                 bool current_query_inner_key_given = true;
                 long long int current_query_id = id_to_query_item.first;
@@ -611,7 +604,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         }
                         RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
                         const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-                        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(inner_key_arg_prefix + arr_elem_key_name_str) );
+                        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(inner_key_arg_prefix + arr_elem_key_name_str) );
                         view_new_keys.push_back(inner_key_arg_prefix + arr_elem_key_name_str);
                     }
                 }
@@ -651,7 +644,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         value = value.substr(1, value.size() - 2);
                     }
                     new_values[view_new_keys[i]] = json::parse(value);
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler key: " + std::string(view_new_keys[i]) + " value: " + value );
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler key: " + std::string(view_new_keys[i]) + " value: " + value );
                 }
 
                 std::unordered_map<std::string, nlohmann::json> old_values;
@@ -680,11 +673,11 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     if(!new_key.empty()) {
                         new_value = new_values[new_key];
                     }
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
                     if(!new_key.empty() && !old_key.empty()) {
                         if(new_value != old_value) {
-                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
+                            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are different , key: " + new_key );
                             View_Diff current_diff;
                             current_diff.index = diff_index;
                             current_diff.old_key = old_key;
@@ -695,7 +688,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             current_diff.diff = json::diff(old_value, new_value);
                             diff_values.push_back(current_diff);
                         }else {
-                            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are same" );
+                            //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler: Keys are same values are same" );
                         }
                     } else if( new_key.empty() && !old_key.empty()) { // Some keys are deleted
                         View_Diff current_diff;
@@ -759,12 +752,15 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_Handler failed to add to the stream." );
                     }
                 }
+                auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
+                Add_Metric(ctx, (VIEW_SEARCH_HANDLER_LATENCY_METRIC_STREAM_PREFIX + current_client + MONITORING_TS_DELIMETER + d_h.id_2_query[current_query_id]), std::to_string(latency_metric_current_query), Create_Latency_Labels(current_client,LATENCY_TYPE_VIEW_SEARCH));
             }
         }
+        auto latency_metric_total_handler = Get_Delta_Time(latency_metric_total_handler_start);
+        Add_Metric(ctx, (VIEW_SEARCH_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); 
+
         RedisModule_ThreadSafeContextUnlock(ctx);
-        const auto search_handler_end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed = search_handler_end - search_handler_start;
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search Handler Spend Time : " + std::to_string(elapsed.count()) );
+
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }

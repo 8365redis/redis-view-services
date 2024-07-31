@@ -1,9 +1,16 @@
 #include <chrono>
 
+#include "module_constants.h"
 #include "module_monitoring.h"
+#include "module_config.h"
 #include "logger.h"
 
 bool Create_Client_Monitoring(RedisModuleCtx *ctx, std::string client_name) {
+    Module_Config &module_config = Module_Config::getInstance();
+    if (module_config.Get_Monitoring() == false){
+        return true;
+    }    
+    
     if(ctx == nullptr || ctx == NULL) {
         return false;
     }   
@@ -53,7 +60,11 @@ bool Create_Client_Monitoring(RedisModuleCtx *ctx, std::string client_name) {
 }
 
 bool Create_Metric_Stream(RedisModuleCtx *ctx, std::string stream_name, std::vector<std::pair<std::string,std::string>> tags , unsigned long retention) {
-    
+    Module_Config &module_config = Module_Config::getInstance();
+    if (module_config.Get_Monitoring() == false){
+        return true;
+    } 
+
     if(ctx == nullptr || ctx == NULL) {
         return false;
     }   
@@ -116,7 +127,12 @@ bool Create_Metric_Stream(RedisModuleCtx *ctx, std::string stream_name, std::vec
 
 }
 
-bool Add_Metric(RedisModuleCtx *ctx, std::string metric_name, std::string metric_value) {
+bool Add_Metric(RedisModuleCtx *ctx, std::string metric_name, std::string metric_value, std::vector<std::pair<std::string,std::string>> label_pairs) {
+    Module_Config &module_config = Module_Config::getInstance();
+    if (module_config.Get_Monitoring() == false){
+        return true;
+    } 
+    
     if(ctx == nullptr || ctx == NULL) {
         return false;
     }
@@ -126,9 +142,39 @@ bool Add_Metric(RedisModuleCtx *ctx, std::string metric_name, std::string metric
         return false;
     }
 
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Add_Metric , parameters : "  + metric_name + " " + metric_value);
+    std::vector<std::string> arguments_string_vector;
+    arguments_string_vector.push_back(metric_name);
+    arguments_string_vector.push_back("*");
+    arguments_string_vector.push_back(metric_value);
 
-    RedisModuleCallReply *ts_add_reply = RedisModule_Call(ctx, "TS.ADD", "ccc", metric_name.c_str(), "*",  metric_value.c_str());
+    if(!label_pairs.empty()) {
+        arguments_string_vector.push_back("LABELS");
+    } 
+    bool added_at_least_one_label = false;
+    for (auto pair : label_pairs) {
+        if (pair.first != "" && pair.second != "") {
+            arguments_string_vector.push_back(pair.first);
+            arguments_string_vector.push_back(pair.second);
+            added_at_least_one_label = true;
+        }
+    }
+    if(!added_at_least_one_label && !label_pairs.empty()) { // Remove added "LABELS" if no label is added
+        arguments_string_vector.pop_back();
+    }
+
+    std::string arguments_string_vector_str;
+    for (const auto& str : arguments_string_vector) {
+        arguments_string_vector_str += str + " ";
+    }
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Add_Metric , parameters : "  + arguments_string_vector_str);
+
+    int new_argc = arguments_string_vector.size();
+    RedisModuleString **new_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * new_argc);
+    for (int i = 0; i < new_argc; ++i) {
+        new_argv[i] = RedisModule_CreateString(ctx, arguments_string_vector[i].c_str(), arguments_string_vector[i].size());
+    }
+
+    RedisModuleCallReply *ts_add_reply = RedisModule_Call(ctx, "TS.ADD", "v", new_argv, new_argc);
     if (RedisModule_CallReplyType(ts_add_reply) == REDISMODULE_REPLY_ERROR) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Add_Metric failed");
         return false;  
@@ -138,6 +184,11 @@ bool Add_Metric(RedisModuleCtx *ctx, std::string metric_name, std::string metric
 }
 
 bool Add_Count_Metric(RedisModuleCtx *ctx, std::string metric_name, bool inc){
+    Module_Config &module_config = Module_Config::getInstance();
+    if (module_config.Get_Monitoring() == false){
+        return true;
+    } 
+
     if(ctx == nullptr || ctx == NULL) {
         return false;
     }
@@ -163,6 +214,11 @@ bool Add_Count_Metric(RedisModuleCtx *ctx, std::string metric_name, bool inc){
 }
 
 bool Reset_Count(RedisModuleCtx *ctx, std::string metric_name){
+    Module_Config &module_config = Module_Config::getInstance();
+    if (module_config.Get_Monitoring() == false){
+        return true;
+    } 
+
     if(ctx == nullptr || ctx == NULL) {
         return false;
     }
@@ -172,11 +228,11 @@ bool Reset_Count(RedisModuleCtx *ctx, std::string metric_name){
         return false;
     }
 
-    if( Add_Metric(ctx, metric_name, "0") == false) {
+    /*if( Add_Metric(ctx, metric_name, "0") == false) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Reset_Count failed , resetting metric to zero failed.");
         return false;        
     }
-
+    */
     return true;
 
 }
@@ -186,5 +242,18 @@ std::chrono::steady_clock::time_point Get_Start_Time() {
 }
 double Get_Delta_Time(std::chrono::steady_clock::time_point start) {
     auto end = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+}
+
+
+std::vector<std::pair<std::string,std::string>> Create_Latency_Labels(const std::string& client, const std::string& search_type) {
+    std::vector<std::pair<std::string,std::string>> latency_tags;
+    latency_tags.emplace_back(CLIENT_LABEL_KEY, client);
+    latency_tags.emplace_back(LATENCY_TYPE_LABEL_KEY, search_type);
+    return latency_tags;
+}
+
+std::vector<std::pair<std::string,std::string>> Create_Handler_Latency_Label(){
+    std::vector<std::pair<std::string,std::string>> latency_tags;
+    return latency_tags;    
 }

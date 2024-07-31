@@ -41,9 +41,13 @@ struct Client_Size_Info {
 
 };
 
+const std::string MONITORING_DISABLED_CONF_STR = "NO_MONITORING";
+
 static const int DEFAULT_DIALECT = 4; 
 
 static const std::string CCT_MODULE_QUERY_DELIMETER = " ";
+
+static const std::string MONITORING_TS_DELIMETER = ":";
 
 static const int CLIENT_TIMEOUT = 600;  // seconds
 

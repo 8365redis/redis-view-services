@@ -16,6 +16,11 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
 
     Data_Handler &d_h = Data_Handler::getInstance();
 
+    if(d_h.registered_clients.count(Get_Client_Name(ctx)) == 0 ) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_RedisCommand failed , client is not registered." );
+        return RedisModule_ReplyWithError(ctx, "Not registered client");       
+    }
+
     std::vector<RedisModuleString*> arguments(argv+1, argv + argc);
     arguments.push_back(RedisModule_CreateString(ctx, "LIMIT", 5 ));
     arguments.push_back(RedisModule_CreateString(ctx, "0", 1 ));
@@ -69,8 +74,7 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
 
     std::string client_name_str = Get_Client_Name(ctx);
     auto latency_metric = Get_Delta_Time(latency_metric_start);
-    Add_Metric(ctx, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str), std::to_string(latency_metric));
-    Add_Count_Metric(ctx, (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + client_name_str));
+    Add_Metric(ctx, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric), Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_COUNT));
     return REDISMODULE_OK;
 }
 
@@ -84,6 +88,7 @@ void Start_Search_Count_Handler(RedisModuleCtx *ctx) {
 void Search_Count_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
+        auto latency_metric_total_handler_start = Get_Start_Time();
         // First handle unregistered clients
         for (auto &unreg_count_client : d_h.unreg_count_wait_list) {
             if(d_h.client_size_info.count(unreg_count_client) == 0){
@@ -91,8 +96,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 continue;
             } else {
                 d_h.client_size_info.erase(unreg_count_client);
-                Reset_Count(ctx , (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX+unreg_count_client)); // Clear its count
-            }          
+            }
         }
         d_h.unreg_count_wait_list.clear();
 
@@ -105,7 +109,6 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 for (auto it = d_h.client_size_info[unsub_count_info.stream_name].begin(); it != d_h.client_size_info[unsub_count_info.stream_name].end(); ) {
                     if ( (*it).first == unsub_count_info.id) {
                         it = d_h.client_size_info[unsub_count_info.stream_name].erase(it); // erase returns the next iterator
-                        Add_Count_Metric(ctx , (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX+unsub_count_info.stream_name), false); // Decrease its count
                     } else {
                         ++it; // only increment if not erased
                     }
@@ -118,6 +121,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
         RedisModule_ThreadSafeContextLock(ctx);
         for(auto &clients_info : d_h.client_size_info){
             for (auto& key2info : clients_info.second){
+                auto latency_metric_current_query_start = Get_Start_Time();
                 auto &info = key2info.second;
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler handling : " + info.stream_name );
                 long long int current_count = 0;
@@ -170,9 +174,16 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                     }
                 }
                 info.count = current_count;
+                auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
+                Add_Metric(ctx, (VIEW_COUNT_HANDLER_LATENCY_METRIC_STREAM_PREFIX + info.stream_name + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric_current_query), Create_Latency_Labels(info.stream_name,LATENCY_TYPE_VIEW_COUNT));
             }
         }
+        auto latency_metric_total_handler = Get_Delta_Time(latency_metric_total_handler_start);
+        Add_Metric(ctx, (VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); // Add server name ?
+
         RedisModule_ThreadSafeContextUnlock(ctx);
+
+
         std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
     }
 }

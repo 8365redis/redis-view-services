@@ -43,3 +43,13 @@ void Print_Status(RedisModuleCtx *ctx , std::string optional){
     }
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , log_str );
 }
+
+
+std::string Vector_2_String(std::vector<std::string> vec) {
+    std::string str = "";
+    for(auto const& e : vec) str += (e + CCT_MODULE_QUERY_DELIMETER);
+    if(str.length() > CCT_MODULE_QUERY_DELIMETER.length() ) {
+        str.erase(str.length() - CCT_MODULE_QUERY_DELIMETER.length());
+    }
+    return str;
+}

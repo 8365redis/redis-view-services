@@ -19,8 +19,8 @@ public:
         return instance;
     }
 private:
-    Data_Handler() {}                   
-public:    
+    Data_Handler() {}
+public:
     Data_Handler(Data_Handler const&) = delete;
     void operator=(Data_Handler const&) = delete;
     std::unordered_map<std::string, std::unordered_map<unsigned long, Client_Size_Info>> client_size_info; 
@@ -38,6 +38,8 @@ public:
     std::set<std::string> registered_clients; 
     std::vector<std::tuple<long long int, long long int, long long int>> scroll_wait_list;
     std::unordered_map<long long int, std::string> id_2_innerkey_prefix; // Query ID : innerkey prefix if given
+
+    std::unordered_map<std::string, std::string> client_2_ts; // monitoring streams 
 };
 
 #endif /* MODULE_DATA_HANDLER_H */

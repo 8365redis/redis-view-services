@@ -18,6 +18,7 @@
 #include "heartbeat_command.h"
 #include "client_tracker.h"
 #include "version.h"
+#include "module_config.h"
 
 #ifndef VIEW_MODULE_VERSION
 #define VIEW_MODULE_VERSION "unknown"
@@ -33,7 +34,6 @@ extern "C" {
 static RedisModuleCtx *rdts_staticCtx;
 
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
-
     int version_int = Get_Module_Version(VIEW_MODULE_VERSION);
     const char* version_string = { VIEW_MODULE_VERSION " compiled at " __TIME__ " "  __DATE__  };
     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "VIEW_MODULE_VERSION : " + std::string(version_string));
@@ -48,6 +48,21 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     if (RedisModule_Init(ctx, "VIEW.SEARCH", version_int, REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     }
+
+    Module_Config &module_config = Module_Config::getInstance();
+    std::vector<std::string> arguments_string_vector;
+    for (int i = 0; i < argc; ++i) {
+        arguments_string_vector.emplace_back(RedisModule_StringPtrLen(argv[i], NULL));
+    }
+
+    if (std::find(arguments_string_vector.begin(), arguments_string_vector.end(), MONITORING_DISABLED_CONF_STR) != arguments_string_vector.end())
+    {
+        module_config.Set_Monitoring(false);
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "MONITORING IS DISABLED");
+    } else {
+        module_config.Set_Monitoring(true);
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "MONITORING IS ENABLED");
+    }    
 
     rdts_staticCtx = RedisModule_GetDetachedThreadSafeContext(ctx);
 
