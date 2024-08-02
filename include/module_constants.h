@@ -41,9 +41,17 @@ struct Client_Size_Info {
 
 };
 
+
+static const int NANO_2_MILI = 1000 * 1000;
+
+static const int SEARCH_HANDLER_DEFAULT_FREQUENCY = 1000;
+static const int SEARCH_HANDLER_MIN_FREQUENCY = 100;
+static const int COUNT_HANDLER_DEFAULT_FREQUENCY = 1000;
+static const int COUNT_HANDLER_MIN_FREQUENCY = 100;
+
 const std::string MONITORING_DISABLED_CONF_STR = "NO_MONITORING";
 
-static const int DEFAULT_DIALECT = 4; 
+static const int DEFAULT_DIALECT = 4;
 
 static const std::string CCT_MODULE_QUERY_DELIMETER = " ";
 

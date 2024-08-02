@@ -193,8 +193,10 @@ bool NeedToAddDialect4(RedisModuleCtx *ctx, std::string index_name, std::string 
 
 
 int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
-    RedisModule_AutoMemory(ctx);
     auto latency_metric_start = Get_Start_Time();
+    auto latency_metric_start_epoch = Get_Epoch_Time();
+
+    RedisModule_AutoMemory(ctx);
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand called." );
 
     Data_Handler &d_h = Data_Handler::getInstance();
@@ -476,7 +478,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     LAST_VIEW_SEARCH_IDENTIFIER++;
 
     auto latency_metric = Get_Delta_Time(latency_metric_start);
-    Add_Metric(ctx, (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + arguments_string_converted), std::to_string(latency_metric) , Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_SEARCH));
+    Add_Metric(ctx, latency_metric_start_epoch, (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + arguments_string_converted), std::to_string(latency_metric) , Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_SEARCH));
     return REDISMODULE_OK;
 }
 
@@ -490,6 +492,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
         auto latency_metric_total_handler_start = Get_Start_Time();
+        auto latency_metric_total_handler_start_epoch = Get_Epoch_Time();
         // Before search loop starts modify the query updates (unregister , unsubscribe and scroll)
         // Unregister Clients
         for (auto &unreg_client : d_h.unreg_search_wait_list) {
@@ -563,6 +566,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             std::string current_client = client_2_query_item.first;
             for (auto &id_to_query_item : client_2_query_item.second) {
                 auto latency_metric_current_query_start = Get_Start_Time();
+                auto latency_metric_current_query_start_epoch = Get_Epoch_Time();
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
                 bool current_query_inner_key_given = true;
                 long long int current_query_id = id_to_query_item.first;
@@ -577,17 +581,12 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 }
                 
                 LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler calling FT.AGGREGATE with args : " + d_h.id_2_query[current_query_id] );
-                const auto aggregate_start = std::chrono::steady_clock::now();
                 // Forward Search
                 RedisModuleCallReply *reply = RedisModule_Call(ctx, "FT.AGGREGATE", "v", arguments.begin(), arguments.size());
                 if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
                     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler FT.AGGREGATE failed." );
                     continue;
                 }
-                const auto aggregate_end = std::chrono::steady_clock::now();
-                std::chrono::duration<double> aggregate_elapsed = aggregate_end - aggregate_start;
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "FT.AGGREGATE Spend Time : " + std::to_string(aggregate_elapsed.count()) );
-
                 const int default_key_index = 1;
                 // First get keys
                 const size_t aggreate_reply_length = RedisModule_CallReplyLength(reply);
@@ -753,15 +752,21 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     }
                 }
                 auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
-                Add_Metric(ctx, (VIEW_SEARCH_HANDLER_LATENCY_METRIC_STREAM_PREFIX + current_client + MONITORING_TS_DELIMETER + d_h.id_2_query[current_query_id]), std::to_string(latency_metric_current_query), Create_Latency_Labels(current_client,LATENCY_TYPE_VIEW_SEARCH));
+                Add_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_SEARCH_HANDLER_LATENCY_METRIC_STREAM_PREFIX + current_client + MONITORING_TS_DELIMETER + d_h.id_2_query[current_query_id]),
+                            std::to_string(latency_metric_current_query), Create_Latency_Labels(current_client,LATENCY_TYPE_VIEW_SEARCH_HANDLER));
             }
         }
         auto latency_metric_total_handler = Get_Delta_Time(latency_metric_total_handler_start);
-        Add_Metric(ctx, (VIEW_SEARCH_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); 
+        Add_Metric(ctx, latency_metric_total_handler_start_epoch, (VIEW_SEARCH_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); 
 
         RedisModule_ThreadSafeContextUnlock(ctx);
 
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
+        unsigned long long total_time_spend_in_handler_in_ms = (unsigned long) latency_metric_total_handler / NANO_2_MILI;
+        long handler_frequency_delta = SEARCH_HANDLER_DEFAULT_FREQUENCY - total_time_spend_in_handler_in_ms;
+        unsigned long long handler_frequency = SEARCH_HANDLER_MIN_FREQUENCY;
+        if(handler_frequency_delta > SEARCH_HANDLER_MIN_FREQUENCY) {
+            handler_frequency = handler_frequency_delta;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(handler_frequency));
     }
 }

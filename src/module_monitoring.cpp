@@ -127,7 +127,7 @@ bool Create_Metric_Stream(RedisModuleCtx *ctx, std::string stream_name, std::vec
 
 }
 
-bool Add_Metric(RedisModuleCtx *ctx, std::string metric_name, std::string metric_value, std::vector<std::pair<std::string,std::string>> label_pairs) {
+bool Add_Metric(RedisModuleCtx *ctx, unsigned long long metric_ts, std::string metric_name, std::string metric_value, std::vector<std::pair<std::string,std::string>> label_pairs) {
     Module_Config &module_config = Module_Config::getInstance();
     if (module_config.Get_Monitoring() == false){
         return true;
@@ -144,7 +144,7 @@ bool Add_Metric(RedisModuleCtx *ctx, std::string metric_name, std::string metric
 
     std::vector<std::string> arguments_string_vector;
     arguments_string_vector.push_back(metric_name);
-    arguments_string_vector.push_back("*");
+    arguments_string_vector.push_back(std::to_string(metric_ts));
     arguments_string_vector.push_back(metric_value);
 
     if(!label_pairs.empty()) {
@@ -243,6 +243,10 @@ std::chrono::steady_clock::time_point Get_Start_Time() {
 double Get_Delta_Time(std::chrono::steady_clock::time_point start) {
     auto end = std::chrono::steady_clock::now();
     return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+}
+
+unsigned long long Get_Epoch_Time(){
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 

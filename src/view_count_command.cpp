@@ -11,9 +11,9 @@
 static unsigned long LAST_VIEW_COUNT_IDENTIFIER = 1;
 
 int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
-    RedisModule_AutoMemory(ctx);
     auto latency_metric_start = Get_Start_Time();
-
+    auto latency_metric_start_epoch = Get_Epoch_Time();
+    RedisModule_AutoMemory(ctx);
     Data_Handler &d_h = Data_Handler::getInstance();
 
     if(d_h.registered_clients.count(Get_Client_Name(ctx)) == 0 ) {
@@ -74,7 +74,7 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
 
     std::string client_name_str = Get_Client_Name(ctx);
     auto latency_metric = Get_Delta_Time(latency_metric_start);
-    Add_Metric(ctx, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric), Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_COUNT));
+    Add_Metric(ctx, latency_metric_start_epoch, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric), Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_COUNT));
     return REDISMODULE_OK;
 }
 
@@ -89,6 +89,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     while(true) {
         auto latency_metric_total_handler_start = Get_Start_Time();
+        auto latency_metric_total_handler_start_epoch = Get_Epoch_Time();
         // First handle unregistered clients
         for (auto &unreg_count_client : d_h.unreg_count_wait_list) {
             if(d_h.client_size_info.count(unreg_count_client) == 0){
@@ -122,6 +123,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
         for(auto &clients_info : d_h.client_size_info){
             for (auto& key2info : clients_info.second){
                 auto latency_metric_current_query_start = Get_Start_Time();
+                auto latency_metric_current_query_start_epoch = Get_Epoch_Time();
                 auto &info = key2info.second;
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler handling : " + info.stream_name );
                 long long int current_count = 0;
@@ -175,15 +177,21 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 }
                 info.count = current_count;
                 auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
-                Add_Metric(ctx, (VIEW_COUNT_HANDLER_LATENCY_METRIC_STREAM_PREFIX + info.stream_name + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric_current_query), Create_Latency_Labels(info.stream_name,LATENCY_TYPE_VIEW_COUNT));
+                Add_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_COUNT_HANDLER_LATENCY_METRIC_STREAM_PREFIX + info.stream_name + MONITORING_TS_DELIMETER + index_and_query), 
+                                std::to_string(latency_metric_current_query), Create_Latency_Labels(info.stream_name,LATENCY_TYPE_VIEW_COUNT_HANDLER));
             }
         }
         auto latency_metric_total_handler = Get_Delta_Time(latency_metric_total_handler_start);
-        Add_Metric(ctx, (VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); // Add server name ?
+        Add_Metric(ctx, latency_metric_total_handler_start_epoch, (VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); 
 
         RedisModule_ThreadSafeContextUnlock(ctx);
-
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every second
+        
+        unsigned long long total_time_spend_in_handler_in_ms = (unsigned long) latency_metric_total_handler / NANO_2_MILI; 
+        long handler_frequency_delta = COUNT_HANDLER_DEFAULT_FREQUENCY - total_time_spend_in_handler_in_ms;
+        unsigned long long handler_frequency = COUNT_HANDLER_MIN_FREQUENCY;
+        if(handler_frequency_delta > COUNT_HANDLER_MIN_FREQUENCY) {
+            handler_frequency = handler_frequency_delta;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(handler_frequency)); 
     }
 }
