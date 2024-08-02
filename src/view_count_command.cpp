@@ -75,6 +75,7 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     std::string client_name_str = Get_Client_Name(ctx);
     auto latency_metric = Get_Delta_Time(latency_metric_start);
     Add_Metric(ctx, latency_metric_start_epoch, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric), Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_COUNT));
+    Add_Count_Metric(ctx, (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + client_name_str), Create_Count_Labels(client_name_str, COUNT_TYPE_VIEW_COUNT));
     return REDISMODULE_OK;
 }
 
@@ -96,6 +97,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_Handler Unreg for count not found for client : " + unreg_count_client);
                 continue;
             } else {
+                Reset_Count(ctx, VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + unreg_count_client); 
                 d_h.client_size_info.erase(unreg_count_client);
             }
         }
@@ -109,6 +111,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
             } else {
                 for (auto it = d_h.client_size_info[unsub_count_info.stream_name].begin(); it != d_h.client_size_info[unsub_count_info.stream_name].end(); ) {
                     if ( (*it).first == unsub_count_info.id) {
+                        Add_Count_Metric(ctx , (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX+unsub_count_info.stream_name), Create_Count_Labels(unsub_count_info.stream_name, COUNT_TYPE_VIEW_COUNT), false); // Decrease its count
                         it = d_h.client_size_info[unsub_count_info.stream_name].erase(it); // erase returns the next iterator
                     } else {
                         ++it; // only increment if not erased

@@ -62,7 +62,19 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     } else {
         module_config.Set_Monitoring(true);
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "MONITORING IS ENABLED");
-    }    
+    }
+
+    for(std::size_t i = 0 ; i < arguments_string_vector.size(); i++){
+        if (arguments_string_vector[i] == MONITORING_RETENTION_CONF_STR && (i+1) < arguments_string_vector.size()) {
+            std::string retention_value_str = arguments_string_vector[i+1];
+            try {
+                unsigned long long retention_value = std::stoull(retention_value_str);
+                module_config.Set_Monitoring_Retention(retention_value);
+            } catch (const std::exception& e) {
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad given value for monitoring retention is invalid." );
+            }          
+        }
+    }
 
     rdts_staticCtx = RedisModule_GetDetachedThreadSafeContext(ctx);
 

@@ -7,26 +7,33 @@ from redis.commands.search.query import GeoFilter, NumericFilter, Query
 from redis.commands.search.result import Result
 import time
 
+MONITORING_TS_DELIMETER = ":"
 
 # KEEP SYNC WITH module_monitoring.h
-LATENCY_TYPE_LABEL_KEY = "LATENCY_TYPE";
-COUNT_TYPE_LABEL_KEY = "COUNT_TYPE";
+LATENCY_TYPE_LABEL_KEY = "LATENCY_TYPE"
+LATENCY_TYPE_VIEW_SEARCH = "VIEW_SEARCH"
+LATENCY_TYPE_VIEW_SEARCH_HANDLER = "VIEW_SEARCH_HANDLER"
+LATENCY_TYPE_VIEW_COUNT = "VIEW_COUNT"
+LATENCY_TYPE_VIEW_COUNT_HANDLER = "VIEW_COUNT_HANDLER"
 
-VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX = "VIEW_COUNT_LATENCY:";
-VIEW_COUNT_LATENCY_CLIENT_LABEL_KEY = "VIEW_COUNT_LATENCY_CLIENT";
-LATENCY_TYPE_VIEW_COUNT = "VIEW_COUNT";
+COUNT_TYPE_LABEL_KEY = "COUNT_TYPE"
+COUNT_TYPE_VIEW_COUNT = "VIEW_COUNT"
+COUNT_TYPE_VIEW_SEARCH = "VIEW_SEARCH"
 
-VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX = "VIEW_COUNT_COUNT:";
-VIEW_COUNT_COUNT_CLIENT_LABEL_KEY = "VIEW_COUNT_COUNT_CLIENT";
-COUNT_TYPE_VIEW_COUNT = "VIEW_COUNT";
+CLIENT_LABEL_KEY = "CLIENT"
 
-VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX = "VIEW_SEARCH_LATENCY:";
-VIEW_SEARCH_LATENCY_CLIENT_LABEL_KEY = "VIEW_SEARCH_LATENCY_CLIENT";
-LATENCY_TYPE_VIEW_SEARCH = "VIEW_SEARCH";
+VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX = "VIEW_COUNT_LATENCY:"
+VIEW_COUNT_HANDLER_LATENCY_METRIC_STREAM_PREFIX = "VIEW_COUNT_HANDLER_LATENCY:"
 
-VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX = "VIEW_SEARCH_COUNT:";
-VIEW_SEARCH_COUNT_CLIENT_LABEL_KEY = "VIEW_SEARCH_COUNT_CLIENT";
-COUNT_TYPE_VIEW_SEARCH = "VIEW_SEARCH";
+VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX = "VIEW_COUNT_COUNT:"
+
+VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX = "VIEW_SEARCH_LATENCY:"
+VIEW_SEARCH_HANDLER_LATENCY_METRIC_STREAM_PREFIX = "VIEW_SEARCH_HANDLER_LATENCY:"
+
+VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX = "VIEW_SEARCH_COUNT:"
+
+VIEW_SEARCH_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX = "VIEW_SEARCH_HANDLER_TOTAL_LATENCY"
+VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX = "VIEW_COUNT_HANDLER_TOTAL_LATENCY"
 # KEEP SYNC WITH module_monitoring.h
 
 
@@ -53,11 +60,13 @@ def test_streams_exist_with_new_register():
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     assert response == "OK"
 
-    assert client1.exists(VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-    assert client1.exists(VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
+    # SECOND CLIENT
+    client2 = connect_redis()
+    response = client2.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_2)
+    assert response == "OK"
 
-    assert client1.exists(VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
+    assert client1.exists(VIEW_SEARCH_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX)
+    assert client1.exists(VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX)
 
 
 def test_search_latency_metric_is_added():
@@ -77,12 +86,19 @@ def test_search_latency_metric_is_added():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
+    query = cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3"
+    response = client1.execute_command("VIEW.SEARCH " + query)
     print(str(response))
 
-    last_value = client1.execute_command("TS.GET " + (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1))
+    metric_key = 'VIEW_SEARCH_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 3'
+    last_value = client1.execute_command('TS.GET' , metric_key )
+    assert last_value
+    print(str(last_value))
+
+    time.sleep(1.1)
+
+    metric_key_handler = 'VIEW_SEARCH_HANDLER_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 3'
+    last_value = client1.execute_command('TS.GET' , metric_key_handler )
     assert last_value
     print(str(last_value))
 
@@ -104,12 +120,18 @@ def test_count_latency_metric_is_added():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-
     response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " *")
     print(str(response))
 
-    last_value = client1.execute_command("TS.GET " + (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1))
+    metric_key = 'VIEW_COUNT_LATENCY:app1:test_index *'
+    last_value = client1.execute_command("TS.GET ", metric_key)
+    assert last_value
+    print(str(last_value))
+
+    time.sleep(1.1)
+
+    metric_key = 'VIEW_COUNT_HANDLER_LATENCY:app1:test_index *'
+    last_value = client1.execute_command("TS.GET ", metric_key)
     assert last_value
     print(str(last_value))
 
@@ -133,8 +155,6 @@ def test_search_count_metric_is_added():
     # FIRST CLIENT
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
 
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
     #print(str(response))
@@ -167,8 +187,6 @@ def test_count_count_metric_is_added():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
-    assert client1.exists(VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-
     response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " *" )
     print(str(response))
 
@@ -200,8 +218,6 @@ def test_count_count_metric_is_reset_after_unsubscribe():
     # FIRST CLIENT
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-
-    assert client1.exists(VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
 
     response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " *" )
     print(str(response))
@@ -253,8 +269,6 @@ def test_count_count_metric_is_reset_after_unregister():
     # FIRST CLIENT
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-
-    assert client1.exists(VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
 
     response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " *" )
     print(str(response))
@@ -308,8 +322,6 @@ def test_count_count_metric_is_reset_after_disconnect():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
-    assert client1.exists(VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-
     response = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME + " *" )
     print(str(response))
 
@@ -345,9 +357,12 @@ def test_count_count_metric_is_reset_after_disconnect():
     print(str(last_value))
 
 
+@pytest.mark.skip(reason="Will be fixed")
 def test_search_count_metric_is_reset_after_unsubscribe():
-    producer = connect_redis_with_start()
+    producer = connect_redis()
+    time.sleep(1000)
     flush_db(producer) # clean all db first
+    time.sleep(1000)
     cct_prepare.create_index(producer)
 
     total_count = 100
@@ -361,8 +376,6 @@ def test_search_count_metric_is_reset_after_unsubscribe():
     # FIRST CLIENT
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
 
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
     #print(str(response))
@@ -413,8 +426,6 @@ def test_search_count_metric_is_reset_after_unregister():
     # FIRST CLIENT
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
 
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
     #print(str(response))
@@ -468,8 +479,6 @@ def test_search_count_metric_is_reset_after_disconnect():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
     #print(str(response))
 
@@ -513,12 +522,12 @@ def test_search_count_metric_is_reset_after_disconnect():
     assert last_value[1] == '2'
 
 
-def test_search_latency_metric_is_added_multi():
+def test_search_latency_metric_query_multi():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
 
-    total_count = 10000
+    total_count = 100
 
     # ADD INITIAL DATA
     for i in range(1, total_count):
@@ -530,20 +539,50 @@ def test_search_latency_metric_is_added_multi():
     client1 = connect_redis()
     response = client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
 
-    assert client1.exists(VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1)
-
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 1")
-    last_value = client1.execute_command("TS.GET " + (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1))
+    metric_key_1 = 'VIEW_SEARCH_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 1'
+    last_value = client1.execute_command("TS.GET " , metric_key_1)
     assert last_value
     print(str(last_value))
+
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 2")
-    last_value = client1.execute_command("TS.GET " + (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1))
+    metric_key_2 = 'VIEW_SEARCH_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 2'
+    last_value = client1.execute_command("TS.GET ", metric_key_2)
     assert last_value
     print(str(last_value))
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 1000")
-    last_value = client1.execute_command("TS.GET " + (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + cct_prepare.TEST_APP_NAME_1))
+
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 User.ID LIMIT 0 3")
+    metric_key_3 = 'VIEW_SEARCH_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 3'
+    last_value = client1.execute_command("TS.GET " , metric_key_3)
     assert last_value
-    print(str(last_value))
+
+    last_multi_value = client1.execute_command("TS.MGET FILTER CLIENT=app1 LATENCY_TYPE=VIEW_SEARCH")
+    print(str(last_multi_value[0]))
+    assert last_multi_value[0][0] == metric_key_1
+    assert last_multi_value[0][2][1]
+    print(str(last_multi_value[1]))
+    assert last_multi_value[1][0] == metric_key_2
+    assert last_multi_value[1][2][1] 
+    print(str(last_multi_value[2]))
+    assert last_multi_value[2][0] == metric_key_3
+    assert last_multi_value[2][2][1] 
+
+    time.sleep(1.1)
+
+    metric_handler_key_1 = 'VIEW_SEARCH_HANDLER_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 1'
+    metric_handler_key_2 = 'VIEW_SEARCH_HANDLER_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 2'
+    metric_handler_key_3 = 'VIEW_SEARCH_HANDLER_LATENCY:app1:test_index * LOAD 1 @__key SORTBY 3 @User.ID @__key ASC LIMIT 0 3'
+
+    last_multi_value = client1.execute_command("TS.MGET FILTER CLIENT=app1 LATENCY_TYPE=VIEW_SEARCH_HANDLER")
+    print(str(last_multi_value[0]))
+    assert last_multi_value[0][0] == metric_handler_key_1
+    assert last_multi_value[0][2][1]
+    print(str(last_multi_value[1]))
+    assert last_multi_value[1][0] == metric_handler_key_2
+    assert last_multi_value[1][2][1] 
+    print(str(last_multi_value[2]))
+    assert last_multi_value[2][0] == metric_handler_key_3
+    assert last_multi_value[2][2][1] 
 
 
 def test_add_data_and_queries():

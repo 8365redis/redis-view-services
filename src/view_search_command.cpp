@@ -479,6 +479,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
 
     auto latency_metric = Get_Delta_Time(latency_metric_start);
     Add_Metric(ctx, latency_metric_start_epoch, (VIEW_SEARCH_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + arguments_string_converted), std::to_string(latency_metric) , Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_SEARCH));
+    Add_Count_Metric(ctx, (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + client_name_str), Create_Count_Labels(client_name_str, COUNT_TYPE_VIEW_SEARCH));
     return REDISMODULE_OK;
 }
 
@@ -499,6 +500,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             if(d_h.client_2_query.count(unreg_client) > 0) {
                 for (auto &id_2_query : d_h.client_2_query[unreg_client]) {
                     d_h.unsub_wait_list.insert(id_2_query.first); // For queries add them to unsubscribe
+                    Reset_Count(ctx, VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX + unreg_client);
                 }
             }
             d_h.client_2_query.erase(unreg_client);
@@ -518,6 +520,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler unsubscribing query id :. " + std::to_string(unsub_id) );
             // client2query
             for (auto &client_2_query_item : d_h.client_2_query) {
+                Add_Count_Metric(ctx , (VIEW_SEARCH_COUNT_METRIC_STREAM_PREFIX+client_2_query_item.first), Create_Count_Labels(client_2_query_item.first, COUNT_TYPE_VIEW_SEARCH), false); //  if it is here it means it is not unreg just unsub 
                 client_2_query_item.second.erase(unsub_id);
             }
             // query2value
