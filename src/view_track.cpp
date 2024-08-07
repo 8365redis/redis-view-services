@@ -51,31 +51,14 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     }
 
     Module_Config &module_config = Module_Config::getInstance();
-    std::vector<std::string> arguments_string_vector;
-    for (int i = 0; i < argc; ++i) {
-        arguments_string_vector.emplace_back(RedisModule_StringPtrLen(argv[i], NULL));
+    std::string config_file_path_str = "";
+    if (argc > 0) {
+        config_file_path_str = RedisModule_StringPtrLen(argv[0], NULL);
     }
-
-    if (std::find(arguments_string_vector.begin(), arguments_string_vector.end(), MONITORING_DISABLED_CONF_STR) != arguments_string_vector.end())
-    {
-        module_config.Set_Monitoring(false);
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "MONITORING IS DISABLED");
-    } else {
-        module_config.Set_Monitoring(true);
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "MONITORING IS ENABLED");
-    }
-
-    for(std::size_t i = 0 ; i < arguments_string_vector.size(); i++){
-        if (arguments_string_vector[i] == MONITORING_RETENTION_CONF_STR && (i+1) < arguments_string_vector.size()) {
-            std::string retention_value_str = arguments_string_vector[i+1];
-            try {
-                unsigned long long retention_value = std::stoull(retention_value_str);
-                module_config.Set_Monitoring_Retention(retention_value);
-            } catch (const std::exception& e) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad given value for monitoring retention is invalid." );
-            }          
-        }
-    }
+    #ifdef _DEBUG
+    config_file_path_str = "non-existing-file";  // DEBUG version will always use hardcoded default DEBUG values
+    #endif
+    module_config.Read_Module_Config(ctx, config_file_path_str);
 
     rdts_staticCtx = RedisModule_GetDetachedThreadSafeContext(ctx);
 

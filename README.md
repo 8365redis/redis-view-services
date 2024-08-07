@@ -66,6 +66,17 @@ or to run a specific test case you can run (example):
 pytest -rP python/view_search_test.py::test_view_search_return_multi
 ```
 
+## Module Configuration
+
+Module configuration file is by default is in the same directory with binary. You can also set a specific directory or name for the configuration file with passing configuration file as a parameter to module (full path).
+Example format of the configuration :
+```
+[view-server]
+MONITORING_ENABLED = 1
+MONITORING_RETENTION = 604800000
+```
+
+
 ## Module API [WIP]
 * VIEW.REGISTER
 * VIEW.UNREGISTER
