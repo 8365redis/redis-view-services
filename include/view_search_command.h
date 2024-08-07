@@ -1,9 +1,8 @@
 #ifndef VIEW_SEARCH_2_COMMAND_H
 #define VIEW_SEARCH_2_COMMAND_H
 
-#include "redismodule.h"
-#include <unordered_map>
-#include <json.hpp>
+#include "redis/redismodule.h"
+#include "json/json.hpp"
 
 using json = nlohmann::json;
 

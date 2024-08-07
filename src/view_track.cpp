@@ -3,8 +3,8 @@
 #include <set>
 #include <unordered_map>
 #include <thread>
-#include "json.hpp"
-#include "redismodule.h"
+#include "json/json.hpp"
+#include "redis/redismodule.h"
 #include "logger.h"
 #include "view_search_command.h"
 #include "module_constants.h"
@@ -16,6 +16,7 @@
 #include "unsubscribe_count_command.h"
 #include "scroll_command.h"
 #include "heartbeat_command.h"
+#include "test_command.h"
 #include "client_tracker.h"
 #include "version.h"
 #include "module_config.h"
@@ -125,6 +126,13 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.COUNT.UNSUBSCRIBE command created successfully.");
     }
+
+    if (RedisModule_CreateCommand(ctx, "VIEW.TEST", Test_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
+        return REDISMODULE_ERR;
+    } else {
+        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.TEST command created successfully.");
+    }
+
     
     Start_Search_Count_Handler(rdts_staticCtx);
 

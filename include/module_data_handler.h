@@ -5,10 +5,10 @@
 #include <vector>
 #include <unordered_map>
 #include <set>
-#include <json.hpp>
 #include <tuple>
 
 #include "module_constants.h"
+#include "json/json.hpp"
 
 using json = nlohmann::json;
 

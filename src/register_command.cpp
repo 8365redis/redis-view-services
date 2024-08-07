@@ -1,3 +1,4 @@
+#include <chrono>
 #include "register_command.h"
 #include "logger.h"
 #include "module_data_handler.h"

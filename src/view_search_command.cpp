@@ -1,4 +1,5 @@
 #include <string>
+#include <unordered_map>
 #include <set>
 #include <thread>
 #include "view_search_command.h"

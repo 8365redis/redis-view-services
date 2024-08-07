@@ -3,8 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "redismodule.h"
-
+#include "redis/redismodule.h"
 
 std::string Get_Client_Name(RedisModuleCtx *ctx);
 std::string Get_Client_Name_From_ID(RedisModuleCtx *ctx, unsigned long long client_id);

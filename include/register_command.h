@@ -1,7 +1,7 @@
 #ifndef REGISTER_COMMAND_H
 #define REGISTER_COMMAND_H
 
-#include "redismodule.h"
+#include "redis/redismodule.h"
 
 int Register_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc);
 

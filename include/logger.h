@@ -1,11 +1,8 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include "redismodule.h"
 #include <string>
-#include <cstring>
-#include <chrono>
-
+#include "redis/redismodule.h"
 
 #ifdef _DEBUG
 #define LOG(ctx, level, log) Log_Std_Output(ctx, level, log)

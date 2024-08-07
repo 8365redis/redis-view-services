@@ -1,3 +1,4 @@
+#include <chrono>
 #include "heartbeat_command.h"
 #include "logger.h"
 #include "module_data_handler.h"

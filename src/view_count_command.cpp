@@ -2,7 +2,7 @@
 
 #include <string>
 #include <thread>
-
+#include <vector>
 #include "logger.h"
 #include "module_utils.h"
 #include "module_constants.h"

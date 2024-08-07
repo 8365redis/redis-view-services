@@ -1,4 +1,6 @@
 #include <thread>
+#include <string>
+#include <unordered_map>
 
 #include "client_tracker.h"
 #include "logger.h"

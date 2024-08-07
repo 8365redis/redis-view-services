@@ -1,8 +1,8 @@
 #ifndef MAIN_SEARCH_COMMAND_H
 #define MAIN_SEARCH_COMMAND_H
 
-#include <vector>
-#include "redismodule.h"
+
+#include "redis/redismodule.h"
 #include "module_data_handler.h"
 
 int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc);

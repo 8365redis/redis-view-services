@@ -3,8 +3,7 @@
 
 #include <string>
 #include <vector>
-
-#include "redismodule.h"
+#include "redis/redismodule.h"
 
 bool Add_Metric(RedisModuleCtx *ctx, unsigned long long metric_ts, std::string metric_name, std::string metric_value, std::vector<std::pair<std::string,std::string>> tags );
 
