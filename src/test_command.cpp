@@ -1,14 +1,19 @@
 #include <chrono>
 #include <string>
+#include <sstream>
+#include <regex>
+#include <iostream>
+
 
 #include "module_utils.h"
 #include "test_command.h"
 #include "module_monitoring.h"
+#include "logger.h"
 
 #include <hiredis/hiredis.h>
 
 int Test_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
-
+    /*
     redisReply *reply;
     redisContext *c;
     auto start = std::chrono::high_resolution_clock::now();
@@ -28,7 +33,7 @@ int Test_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc){
     printf("RESPONSE: %s\n", reply->str);
     freeReplyObject(reply);
     redisFree(c);
-
+    */
 
 
     RedisModule_ReplyWithSimpleString(ctx, "OK");

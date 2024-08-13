@@ -129,6 +129,15 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
 
+    /*
+    RedisModule_GetMyClusterID
+    int redis_port;
+    if ( RedisModule_GetClusterNodeInfo(ctx,NULL,NULL,NULL,&redis_port,NULL) != REDISMODULE_OK) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad failed to get self port." );
+        return RedisModule_ReplyWithError(ctx, strerror(errno));
+    }
+    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad PORT: " + std::to_string(redis_port) );
+    */
     return REDISMODULE_OK;
 }
 

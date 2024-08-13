@@ -49,7 +49,7 @@ bool Add_Metric(RedisModuleCtx *ctx, unsigned long long metric_ts, std::string m
     for (const auto& str : arguments_string_vector) {
         arguments_string_vector_str += str + " ";
     }
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Add_Metric , parameters : "  + arguments_string_vector_str);
+    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Add_Metric , parameters : "  + arguments_string_vector_str);
 
     int new_argc = arguments_string_vector.size();
     RedisModuleString **new_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * new_argc);
@@ -108,7 +108,7 @@ bool Add_Count_Metric(RedisModuleCtx *ctx, std::string metric_name, std::vector<
     for (const auto& str : arguments_string_vector) {
         arguments_string_vector_str += str + " ";
     }
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Add_Count_Metric , parameters : "  + arguments_string_vector_str);
+    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Add_Count_Metric , parameters : "  + arguments_string_vector_str);
 
     int new_argc = arguments_string_vector.size();
     RedisModuleString **new_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * new_argc);

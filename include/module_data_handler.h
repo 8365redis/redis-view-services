@@ -12,6 +12,41 @@
 
 using json = nlohmann::json;
 
+class IP_Address_Port {
+private:
+    std::string ip;
+    std::string port;
+    std::string key;
+public:
+    IP_Address_Port(const std::string& ip, const std::string& port) : ip(ip), port(port) { key = ip + ":" + port; }
+    IP_Address_Port() : ip(""), port("") { key = ip + ":" + port; }
+    IP_Address_Port(const IP_Address_Port& other) : ip(other.ip), port(other.port), key(other.key) {}
+    IP_Address_Port(IP_Address_Port&& other) noexcept : ip(std::move(other.ip)), port(std::move(other.port)), key(std::move(other.key)) {}
+
+    IP_Address_Port& operator=(const IP_Address_Port& other) {
+        if (this != &other) {
+            ip = other.ip;
+            port = other.port;
+            key = other.key;
+        }
+        return *this;
+    }
+
+    IP_Address_Port& operator=(IP_Address_Port&& other) noexcept {
+        if (this != &other) {
+            ip = std::move(other.ip);
+            port = std::move(other.port);
+            key = std::move(other.key);
+        }
+        return *this;
+    }
+
+    std::string get_IP() const { return ip; }
+    std::string get_port() const { return port; }
+    std::string get_key() const { return key; }
+};
+
+
 class Data_Handler {
 public:
     static Data_Handler& getInstance(){
@@ -39,7 +74,6 @@ public:
     std::vector<std::tuple<long long int, long long int, long long int>> scroll_wait_list;
     std::unordered_map<long long int, std::string> id_2_innerkey_prefix; // Query ID : innerkey prefix if given
 
-    std::unordered_map<std::string, std::string> client_2_ts; // monitoring streams 
 };
 
 #endif /* MODULE_DATA_HANDLER_H */

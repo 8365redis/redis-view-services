@@ -10,7 +10,7 @@ const std::string DEFAULT_CONFIG_FILE_NAME  = "view-server-config.ini";
 const std::string DEFAULT_CONFIG_SECTION  = "view-server";
 
 const std::string MONITORING_ENABLED_CONFIG  = "MONITORING_ENABLED";
-const std::string MONITORING_RETENTION_CONFIG = "MONITORING_RETENTION";
+const std::string MONITORING_RETENTION_CONFIG = "MONITORING_RETENTION_HOURS";
 
 class Module_Config {
 public:

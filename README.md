@@ -72,8 +72,8 @@ Module configuration file is by default is in the same directory with binary. Yo
 Example format of the configuration :
 ```
 [view-server]
-MONITORING_ENABLED = 1
-MONITORING_RETENTION = 604800000
+MONITORING_ENABLED = true
+MONITORING_RETENTION_HOURS = 24
 ```
 
 

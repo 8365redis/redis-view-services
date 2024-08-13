@@ -35,11 +35,9 @@ void Module_Config::Read_Module_Config(RedisModuleCtx *ctx, std::string config_f
         }
 
         if( !config[DEFAULT_CONFIG_SECTION][MONITORING_ENABLED_CONFIG].empty() ) {
-            try{
-                monitoring_enabled = std::stoi(config[DEFAULT_CONFIG_SECTION][MONITORING_ENABLED_CONFIG]);
-            } catch (std::invalid_argument const& ex) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value " + MONITORING_ENABLED_CONFIG  + " has failed to read value.");
-            }
+
+            std::string monitoring_enabled_str = config[DEFAULT_CONFIG_SECTION][MONITORING_ENABLED_CONFIG];
+            monitoring_enabled = monitoring_enabled_str == "true" ? true : false;
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_ENABLED_CONFIG] : " + std::to_string(monitoring_enabled));
         } else {
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_ENABLED_CONFIG] is not found in config file using default.");
@@ -47,7 +45,8 @@ void Module_Config::Read_Module_Config(RedisModuleCtx *ctx, std::string config_f
 
         if( !config[DEFAULT_CONFIG_SECTION][MONITORING_RETENTION_CONFIG].empty() ) {
             try{
-                monitoring_retention = std::stoi(config[DEFAULT_CONFIG_SECTION][MONITORING_RETENTION_CONFIG]);
+                int monitoring_retention_hours = std::stoi(config[DEFAULT_CONFIG_SECTION][MONITORING_RETENTION_CONFIG]);
+                monitoring_retention = monitoring_retention_hours * 60 * 60 * 1000;
             } catch (std::invalid_argument const& ex) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value " + MONITORING_RETENTION_CONFIG  + " has failed to read value.");
             }
