@@ -16,10 +16,10 @@
 #include "unsubscribe_count_command.h"
 #include "scroll_command.h"
 #include "heartbeat_command.h"
-#include "test_command.h"
 #include "client_tracker.h"
 #include "version.h"
 #include "module_config.h"
+#include "replication_node_tracker.h"
 
 #ifndef VIEW_MODULE_VERSION
 #define VIEW_MODULE_VERSION "unknown"
@@ -109,13 +109,6 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     } else {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.COUNT.UNSUBSCRIBE command created successfully.");
     }
-
-    if (RedisModule_CreateCommand(ctx, "VIEW.TEST", Test_RedisCommand , "readonly", 0, 0, 0) == REDISMODULE_ERR) {
-        return REDISMODULE_ERR;
-    } else {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "VIEW.TEST command created successfully.");
-    }
-
     
     Start_Search_Count_Handler(rdts_staticCtx);
 
@@ -129,15 +122,16 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
 
-    /*
-    RedisModule_GetMyClusterID
-    int redis_port;
-    if ( RedisModule_GetClusterNodeInfo(ctx,NULL,NULL,NULL,&redis_port,NULL) != REDISMODULE_OK) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad failed to get self port." );
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
+    
+    int port = Get_Master_Redis_Port(ctx);
+    if (port == 0) {
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad failed to get master node portfrom info. Using default port :" + std::to_string(DEFAULT_MASTER_PORT) );
+        port = DEFAULT_MASTER_PORT;
     }
-    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad PORT: " + std::to_string(redis_port) );
-    */
+    Data_Handler &d_h = Data_Handler::getInstance();
+    d_h.master_node = IP_Address_Port(DEFAULT_MASTER_IP, DEFAULT_MASTER_PORT);
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Master Node is detected as : " + DEFAULT_MASTER_IP + ":" + std::to_string(DEFAULT_MASTER_PORT));
+
     return REDISMODULE_OK;
 }
 

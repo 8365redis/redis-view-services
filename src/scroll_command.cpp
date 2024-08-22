@@ -104,7 +104,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
     
-
+    std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[query_id];
     const int default_key_index = 1;
     // First get keys
     std::vector<std::string> keys;
@@ -121,7 +121,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
             RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
             const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
-            keys.push_back(arr_elem_key_name_str);
+            keys.push_back(inner_key_arg_prefix + arr_elem_key_name_str);
         }
     }
 

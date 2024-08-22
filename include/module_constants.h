@@ -19,6 +19,8 @@ struct Client_Size_Info {
 
 
     Client_Size_Info() : count(0), hash_value(0), id(0) {}
+    Client_Size_Info(const Client_Size_Info& other) : stream_name(other.stream_name), arguments(other.arguments), count(other.count), hash_value(other.hash_value), id(other.id) {}
+    Client_Size_Info(Client_Size_Info&& other) noexcept : stream_name(std::move(other.stream_name)), arguments(std::move(other.arguments)), count(std::move(other.count)), hash_value(std::move(other.hash_value)), id(std::move(other.id)) {}
 
     // Constructor to initialize and compute the hash value
     Client_Size_Info(const std::string& name, const std::vector<std::string>& args, long long int cnt, std::size_t i)
@@ -40,6 +42,9 @@ struct Client_Size_Info {
     }
 
 };
+
+const std::string DEFAULT_MASTER_IP = "127.0.0.1";
+const int DEFAULT_MASTER_PORT = 6379;
 
 
 static const int NANO_2_MILI = 1000 * 1000;

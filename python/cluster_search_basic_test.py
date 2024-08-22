@@ -52,7 +52,7 @@ def test_view_search_stream_write_new_start_single():
 
     #UPDATE DATA 
     d = cct_prepare.generate_single_object(1000  , 2100, "aaa")
-    key = cct_prepare.TEST_INDEX_PREFIX + str(0)
+    key = cct_prepare.TEST_INDEX_PREFIX + str(1)
     producer.json().set(key, Path.root_path(), d)
 
     time.sleep(1.1)

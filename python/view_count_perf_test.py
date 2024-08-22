@@ -53,9 +53,9 @@ def main():
     #sortby_numeric_innerkey_text_test()
     #sortby_numeric_innerkey_text_with_offset_test()
     #sortby_text_innerkey_numeric_test()
-    #sortby_text_innerkey_numeric_with_offset_test()
+    sortby_text_innerkey_numeric_with_offset_test()
     #ft_aggreagate_with_sortby_and_innerkey_variation_test()
-    add_data_only()
+    #add_data_only()
     print("Perf Test ends")
 
 def ft_info_test():
@@ -175,12 +175,13 @@ def sortby_text_innerkey_text_with_offset_test():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("FT.CONFIG SET MAXSEARCHRESULTS 1000000")
+    client1.execute_command("FT.CONFIG SET MAXAGGREGATERESULTS 1000000")
     client1.execute_command("VIEW.REGISTER app1")
     latency = []
     for i in range(iter_count):
         start_set_time = time.perf_counter_ns()
         response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 field1 DESC LIMIT 900000 10 INNERKEY field4")
-        #print(str(response))
+        print(str(response))
         end_set_time = time.perf_counter_ns()
         latency.append(((end_set_time - start_set_time) // 1000))
 
@@ -256,12 +257,13 @@ def sortby_numeric_innerkey_numeric_with_offset_test():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("FT.CONFIG SET MAXSEARCHRESULTS 1000000")
+    client1.execute_command("FT.CONFIG SET MAXAGGREGATERESULTS 1000000")
     client1.execute_command("VIEW.REGISTER app1")
     latency = []
     for i in range(iter_count):
         start_set_time = time.perf_counter_ns()
         response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 field1 DESC LIMIT 900000 10 INNERKEY field4")
-        #print(str(response))
+        print(str(response))
         end_set_time = time.perf_counter_ns()
         latency.append(((end_set_time - start_set_time) // 1000))
 
@@ -339,12 +341,13 @@ def sortby_numeric_innerkey_text_with_offset_test():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("FT.CONFIG SET MAXSEARCHRESULTS 1000000")
+    client1.execute_command("FT.CONFIG SET MAXAGGREGATERESULTS 1000000")
     client1.execute_command("VIEW.REGISTER app1")
     latency = []
     for i in range(iter_count):
         start_set_time = time.perf_counter_ns()
         response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 field1 DESC LIMIT 900000 10 INNERKEY field4")
-        #print(str(response))
+        print(str(response))
         end_set_time = time.perf_counter_ns()
         latency.append(((end_set_time - start_set_time) // 1000))
 
@@ -420,12 +423,13 @@ def sortby_text_innerkey_numeric_with_offset_test():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("FT.CONFIG SET MAXSEARCHRESULTS 1000000")
+    client1.execute_command("FT.CONFIG SET MAXAGGREGATERESULTS 1000000")
     client1.execute_command("VIEW.REGISTER app1")
     latency = []
     for i in range(iter_count):
         start_set_time = time.perf_counter_ns()
         response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 field1 DESC LIMIT 900000 10 INNERKEY field4")
-        #print(str(response))
+        print(str(response))
         end_set_time = time.perf_counter_ns()
         latency.append(((end_set_time - start_set_time) // 1000))
 

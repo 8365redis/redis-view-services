@@ -15,11 +15,11 @@ using json = nlohmann::json;
 class IP_Address_Port {
 private:
     std::string ip;
-    std::string port;
+    int port;
     std::string key;
 public:
-    IP_Address_Port(const std::string& ip, const std::string& port) : ip(ip), port(port) { key = ip + ":" + port; }
-    IP_Address_Port() : ip(""), port("") { key = ip + ":" + port; }
+    IP_Address_Port(const std::string& ip, const int port) : ip(ip), port(port) { key = ip + ":" + std::to_string(port); }
+    IP_Address_Port() : ip(""), port(0) { key = ip + ":" + std::to_string(port); }
     IP_Address_Port(const IP_Address_Port& other) : ip(other.ip), port(other.port), key(other.key) {}
     IP_Address_Port(IP_Address_Port&& other) noexcept : ip(std::move(other.ip)), port(std::move(other.port)), key(std::move(other.key)) {}
 
@@ -42,7 +42,7 @@ public:
     }
 
     std::string get_IP() const { return ip; }
-    std::string get_port() const { return port; }
+    int get_port() const { return port; }
     std::string get_key() const { return key; }
 };
 
@@ -74,6 +74,7 @@ public:
     std::vector<std::tuple<long long int, long long int, long long int>> scroll_wait_list;
     std::unordered_map<long long int, std::string> id_2_innerkey_prefix; // Query ID : innerkey prefix if given
 
+    IP_Address_Port master_node;
 };
 
 #endif /* MODULE_DATA_HANDLER_H */

@@ -11,7 +11,6 @@ std::string Get_Client_Name(RedisModuleCtx *ctx) {
 std::string Get_Client_Name_From_ID(RedisModuleCtx *ctx, unsigned long long client_id) {
     RedisModuleString *client_name = RedisModule_GetClientNameById(ctx, client_id); 
     if ( client_name == NULL){
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Get_Client_Name_From_ID : Failed to get client name." );
         return "";
     }
     std::string client_name_str = RedisModule_StringPtrLen(client_name, NULL);
@@ -52,4 +51,28 @@ std::string Vector_2_String(std::vector<std::string> vec) {
         str.erase(str.length() - CCT_MODULE_QUERY_DELIMETER.length());
     }
     return str;
+}
+
+void Print_Response(redisReply *reply) {
+    if(reply->type == REDIS_REPLY_ARRAY){
+        for (std::size_t i = 0; i < reply->elements; i++) {
+            if(reply->element[i]->type == REDIS_REPLY_ARRAY) {
+                Print_Response(reply->element[i]);
+            } else if(reply->element[i]->type == REDIS_REPLY_STRING){
+                printf("%s\n", reply->element[i]->str);
+            } else if(reply->element[i]->type == REDIS_REPLY_INTEGER){
+                printf("%lld\n", reply->element[i]->integer);
+            } else if(reply->element[i]->type == REDIS_REPLY_DOUBLE){
+                printf("%f\n", reply->element[i]->dval);
+            }
+        }
+    } else if(reply->type == REDIS_REPLY_STRING){
+        printf("%s\n", reply->str);
+    } else if(reply->type == REDIS_REPLY_INTEGER){
+        printf("%lld\n", reply->integer);
+    } else if(reply->type == REDIS_REPLY_DOUBLE){
+        printf("%f\n", reply->dval);
+    } else if(reply->type == REDIS_REPLY_ERROR){
+        printf("%s\n", reply->str);
+    }
 }

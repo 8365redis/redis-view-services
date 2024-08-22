@@ -15,19 +15,19 @@ void Handle_Client_Event(RedisModuleCtx *ctx, RedisModuleEvent eid, uint64_t sub
     }
     RedisModuleClientInfo *client_info = (RedisModuleClientInfo*)data;
     unsigned long long client_id = client_info->id;
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handle_Client_Event client : " + std::to_string(client_id) );
+    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handle_Client_Event client : " + std::to_string(client_id) );
     std::string client_name = Get_Client_Name_From_ID(ctx, client_id);
     Data_Handler &d_h = Data_Handler::getInstance();
     if (eid.id == REDISMODULE_EVENT_CLIENT_CHANGE) {
         switch (subevent) {
             case REDISMODULE_SUBEVENT_CLIENT_CHANGE_DISCONNECTED: 
-                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handle_Client_Event client disconnected : " + client_name );
+                //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handle_Client_Event client disconnected : " + client_name );
                 if (!client_name.empty() && d_h.registered_clients.count(client_name) > 0 ) {
                     Unregister_Client(ctx, client_name);
                 }
                 break;
             case REDISMODULE_SUBEVENT_CLIENT_CHANGE_CONNECTED: 
-                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handle_Client_Event client connected : " + client_name);
+                //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handle_Client_Event client connected : " + client_name);
                 break;
         }
     }

@@ -1,6 +1,7 @@
 #include <string>
 #include <set>
 #include <thread>
+#include <hiredis/hiredis.h>
 #include "view_search_command.h"
 #include "logger.h"
 #include "module_constants.h"
@@ -576,7 +577,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler iterate for: " + client_2_query_item.first );
                 bool current_query_inner_key_given = true;
                 long long int current_query_id = id_to_query_item.first;
-                std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[current_query_id];
+                std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[current_query_id]; // if not exists returns empty so it works no need to check if it exists
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : id_to_query_item.second){
                     if(arg == "@__key"){
@@ -589,7 +590,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler calling FT.AGGREGATE with args : " + d_h.id_2_query[current_query_id] );
 
                 if(replication_nodes_search.size() > 0) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler will forward FT.AGGREGATE to replication node" );
+                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler will forward FT.AGGREGATE to replication node" );
                     Forward_Request_To_Replication_Node(ctx, replication_nodes_search, current_client, d_h.id_2_query[current_query_id], current_query_inner_key_given, current_query_id, inner_key_arg_prefix);
                     continue;
                 }
@@ -716,7 +717,7 @@ void Forward_Request_To_Replication_Node(RedisModuleCtx *ctx, std::unordered_map
         keys.push_back(node.first);
     }
     int current_picked_node_index = distributer_count % total_replication_node;
-    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Forward_Request_To_Replication_Node picked node:" + keys[current_picked_node_index] );
+    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Forward_Request_To_Replication_Node (Search) picked node:" + keys[current_picked_node_index] );
     IP_Address_Port node = nodes[keys[current_picked_node_index]];
     std::thread t(Handler_Forward_Request, ctx, node, client, arguments, inner_key_given, query_id, inner_key_arg_prefix);
     t.detach(); // Detach the thread to allow it to run independently
@@ -725,14 +726,11 @@ void Forward_Request_To_Replication_Node(RedisModuleCtx *ctx, std::unordered_map
 
 
 void Handler_Forward_Request(RedisModuleCtx *ctx, IP_Address_Port node, std::string client, std::string arguments, bool inner_key_given, long long int query_id, std::string inner_key_arg_prefix) {
+    auto latency_metric_current_query_start = Get_Start_Time();
+    auto latency_metric_current_query_start_epoch = Get_Epoch_Time();
+
     redisContext *hiredis_replica_context;
-    int port = 0;
-    try { 
-        port = std::stoi(node.get_port());
-    } catch (std::invalid_argument const& ex) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Handler_Forward_Request given port is invalid");
-    }
-    hiredis_replica_context = redisConnect(node.get_IP().c_str(), port);
+    hiredis_replica_context = redisConnect(node.get_IP().c_str(), node.get_port());
     if (hiredis_replica_context == NULL || hiredis_replica_context->err) {
         std::string error(hiredis_replica_context->errstr);
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Handler_Forward_Request connection error:" + error );
@@ -793,7 +791,7 @@ void Handler_Forward_Request(RedisModuleCtx *ctx, IP_Address_Port node, std::str
     }
     get_command_arguments = get_command_arguments + " $"; 
     std::string get_command = "JSON.MGET " + get_command_arguments;
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handler_Forward_Request forwarded JSON.MGET:" + get_command );
+    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handler_Forward_Request forwarded JSON.MGET:" + get_command );
     get_reply = (redisReply*) redisCommand(hiredis_replica_context, get_command.c_str());
 
     if (get_reply == NULL || hiredis_replica_context->err) {
@@ -832,68 +830,55 @@ void Handler_Forward_Request(RedisModuleCtx *ctx, IP_Address_Port node, std::str
         new_values[view_new_keys[i]] = json::parse(value);
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handler_Forward_Request key: " + std::string(view_new_keys[i]) + " value: " + value );       
     }
+
+    redisFree(hiredis_replica_context);
     freeReplyObject(get_reply);
 
 
-
+    Data_Handler &d_h = Data_Handler::getInstance();
+    
     json diff_values_json_array = json::array();
     int diff_size = 0;
     Diff_View(ctx, view_new_keys, new_values, query_id, diff_values_json_array, diff_size);    
 
     if( diff_size == 0 ) {
-        redisFree(hiredis_replica_context);
+        auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
+        Add_Replication_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_SEARCH_HANDLER_REPLICA_LATENCY_METRIC_STREAM_PREFIX + node.get_key() + 
+                    MONITORING_TS_DELIMETER + client + MONITORING_TS_DELIMETER + d_h.id_2_query[query_id]),
+                    std::to_string(latency_metric_current_query), Create_Replica_Latency_Labels(client,LATENCY_TYPE_VIEW_SEARCH_HANDLER, node.get_key()));
         return;
     } 
 
     redisContext *hiredis_master_context;
-    hiredis_master_context = redisConnect("127.0.0.1", 6379);
+    hiredis_master_context = redisConnect(d_h.master_node.get_IP().c_str(), d_h.master_node.get_port());
     if (hiredis_master_context == NULL || hiredis_master_context->err) {
         std::string error(hiredis_master_context->errstr);
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Handler_Forward_Request connection error:" + error );
         redisFree(hiredis_master_context);
         return;
     }
+
     redisReply *stream_reply;
-    Data_Handler &d_h = Data_Handler::getInstance();
     stream_reply = (redisReply*) redisCommand(hiredis_master_context, "XADD %s * %s %s %s %lld %s %s %s %s" , client.c_str(), STREAM_CLIENT_ID_STR.c_str(), client.c_str(), 
                                                 STREAM_QUERY_ID_STR.c_str(), query_id, STREAM_QUERY_STR.c_str(), d_h.id_2_query[query_id].c_str(),
                                                 STREAM_DIFF_STR.c_str(), diff_values_json_array.dump().c_str());
-    
-   Print_Response(stream_reply);
 
     if (stream_reply == NULL || hiredis_master_context->err) {
         std::string error(hiredis_master_context->errstr);
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Handler_Forward_Request request error at XADD : " + error );
+        redisFree(hiredis_master_context);
+        freeReplyObject(stream_reply);
         return;
     }
 
-    
-    redisFree(hiredis_replica_context);
+    freeReplyObject(stream_reply);
     redisFree(hiredis_master_context);
-}
 
-void Print_Response(redisReply *reply) {
-    if(reply->type == REDIS_REPLY_ARRAY){
-        for (std::size_t i = 0; i < reply->elements; i++) {
-            if(reply->element[i]->type == REDIS_REPLY_ARRAY) {
-                Print_Response(reply->element[i]);
-            } else if(reply->element[i]->type == REDIS_REPLY_STRING){
-                printf("%s\n", reply->element[i]->str);
-            } else if(reply->element[i]->type == REDIS_REPLY_INTEGER){
-                printf("%lld\n", reply->element[i]->integer);
-            } else if(reply->element[i]->type == REDIS_REPLY_DOUBLE){
-                printf("%f\n", reply->element[i]->dval);
-            }
-        }
-    } else if(reply->type == REDIS_REPLY_STRING){
-        printf("%s\n", reply->str);
-    } else if(reply->type == REDIS_REPLY_INTEGER){
-        printf("%lld\n", reply->integer);
-    } else if(reply->type == REDIS_REPLY_DOUBLE){
-        printf("%f\n", reply->dval);
-    } else if(reply->type == REDIS_REPLY_ERROR){
-        printf("%s\n", reply->str);
-    }
+    auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
+    Add_Replication_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_SEARCH_HANDLER_REPLICA_LATENCY_METRIC_STREAM_PREFIX + node.get_key() + 
+                MONITORING_TS_DELIMETER + client + MONITORING_TS_DELIMETER + d_h.id_2_query[query_id]),
+                std::to_string(latency_metric_current_query), Create_Replica_Latency_Labels(client,LATENCY_TYPE_VIEW_SEARCH_HANDLER, node.get_key()));
+
 }
 
 void Diff_View(RedisModuleCtx *ctx, std::vector<std::string> &view_new_keys, std::unordered_map<std::string, nlohmann::json> &new_values,
@@ -915,7 +900,7 @@ void Diff_View(RedisModuleCtx *ctx, std::vector<std::string> &view_new_keys, std
     // Iterate new keys from old keys
     long unsigned int diff_index = 0;
     while (diff_index < view_old_keys.size()){
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Starting to check old keys" );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Starting to check old keys" );
         std::string old_key = view_old_keys[diff_index];
         std::string new_key = "";
         if (diff_index < view_new_keys.size()) {
@@ -926,11 +911,11 @@ void Diff_View(RedisModuleCtx *ctx, std::vector<std::string> &view_new_keys, std
         if(!new_key.empty()) {
             new_value = new_values[new_key];
         }
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Old key loop : Old key : " + old_key + " , and new key : "  + new_key);
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Old key loop : Old value : " + old_value.dump() + " , and new value : "  + new_value.dump());
         if(!new_key.empty() && !old_key.empty()) {
             if(new_value != old_value) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Keys are same values are different , key: " + new_key );
+                //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Keys are same values are different , key: " + new_key );
                 View_Diff current_diff;
                 current_diff.index = diff_index;
                 current_diff.old_key = old_key;
@@ -941,7 +926,7 @@ void Diff_View(RedisModuleCtx *ctx, std::vector<std::string> &view_new_keys, std
                 current_diff.diff = json::diff(old_value, new_value);
                 diff_values.push_back(current_diff);
             }else {
-                LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Keys are same values are same" );
+                //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Keys are same values are same" );
             }
         } else if( new_key.empty() && !old_key.empty()) { // Some keys are deleted
             View_Diff current_diff;
@@ -958,7 +943,7 @@ void Diff_View(RedisModuleCtx *ctx, std::vector<std::string> &view_new_keys, std
 
     // If the new key list is bigger than old key list it means we have new keys
     while (diff_index < view_new_keys.size()) {
-        LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Starting to check and add new keys" );
+        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Diff_View: Starting to check and add new keys" );
         std::string new_key = view_new_keys[diff_index];
         nlohmann::json new_value = new_values[new_key];
         View_Diff current_diff;
