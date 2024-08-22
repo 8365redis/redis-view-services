@@ -43,12 +43,16 @@ def test_view_search_stream_write_new_start_single():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY 2 User.ID ASC LIMIT 0 3")
     print("VIEW.SEARCH RESPONSE : " + str(response))
+    assert response[5][1] == 'test_data:1'
+    assert response[5][5] == 'test_data:2'
+    assert response[5][9] == 'test_data:3'
 
     time.sleep(1.1)
     
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM BEFORE UPDATE: " + str(from_stream))
+    assert from_stream == []
 
     #UPDATE DATA 
     d = cct_prepare.generate_single_object(1000  , 2100, "aaa")
@@ -60,6 +64,7 @@ def test_view_search_stream_write_new_start_single():
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM AFTER UPDATE: " + str(from_stream))
+    assert from_stream[0][1][0][1]["query_id"] == '1'
 
     # TRIM STREAM
     client1.xtrim(cct_prepare.TEST_APP_NAME_1 , 0)
@@ -67,12 +72,14 @@ def test_view_search_stream_write_new_start_single():
     # CHECK STREAM AFTER TRIM 
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM AFTER TRIM: " + str(from_stream))
+    assert from_stream == []
 
     time.sleep(1.1)
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM AFTER TRIM and DELAY: " + str(from_stream))
+    assert from_stream == []
 
 
 
@@ -120,6 +127,7 @@ def test_view_search_stream_write_new_start_double():
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM BEFORE UPDATE: " + str(from_stream))
+    assert from_stream == []
 
     #UPDATE DATA 
     d = cct_prepare.generate_single_object(1000  , 2111, "aaa")
@@ -144,9 +152,12 @@ def test_view_search_stream_write_new_start_double():
     # CHECK STREAM AFTER TRIM 
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM AFTER TRIM: " + str(from_stream))
+    assert from_stream == []
 
     time.sleep(1.1)
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
     print("STREAM AFTER TRIM and DELAY: " + str(from_stream))
+    assert from_stream == []
+
