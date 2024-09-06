@@ -111,27 +111,28 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     }
     
     Start_Search_Count_Handler(rdts_staticCtx);
-
+    
     Start_View_Search_Handler(rdts_staticCtx);
-
+    
     Start_Client_Handler(rdts_staticCtx);
- 
+    
     if (RedisModule_SubscribeToServerEvent(ctx, RedisModuleEvent_ClientChange,
                                              Handle_Client_Event) != REDISMODULE_OK) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad failed to SubscribeToServerEvent for RedisModuleEvent_ClientChange." );
         return RedisModule_ReplyWithError(ctx, strerror(errno));
     }
-
+    
     
     int port = Get_Master_Redis_Port(ctx);
     if (port == 0) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "RedisModule_OnLoad failed to get master node portfrom info. Using default port :" + std::to_string(DEFAULT_MASTER_PORT) );
         port = DEFAULT_MASTER_PORT;
     }
+    
     Data_Handler &d_h = Data_Handler::getInstance();
     d_h.master_node = IP_Address_Port(DEFAULT_MASTER_IP, DEFAULT_MASTER_PORT);
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Master Node is detected as : " + DEFAULT_MASTER_IP + ":" + std::to_string(DEFAULT_MASTER_PORT));
-
+    
     return REDISMODULE_OK;
 }
 

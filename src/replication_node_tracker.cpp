@@ -57,19 +57,15 @@ int Get_Master_Redis_Port(RedisModuleCtx *ctx) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Get_Master_Redis_Port INFO server has failed. Call failed." );
         return 0;
     }
-
     if (RedisModule_CallReplyType(info_reply) != REDISMODULE_REPLY_STRING) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Get_Master_Redis_Port INFO server has failed. Not string." );
         return 0;
     }
-
     RedisModuleString *response = RedisModule_CreateStringFromCallReply(info_reply);
     std::string info_server_str = RedisModule_StringPtrLen(response, NULL);
-
     std::regex port_regex(R"(tcp_port:(\d+))");
     std::smatch match;
     std::string port_str;
-
     if (std::regex_search(info_server_str, match, port_regex)) {
         port_str = match[1] ;
     } else {

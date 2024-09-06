@@ -46,14 +46,14 @@ def add_data_only():
 def main():
     print("Perf Test starts")
     #ft_info_test()
-    #sortby_text_innerkey_text_test()
+    sortby_text_innerkey_text_test()
     #sortby_text_innerkey_text_with_offset_test()
     #sortby_numeric_innerkey_numeric_test()
     #sortby_numeric_innerkey_numeric_with_offset_test()
     #sortby_numeric_innerkey_text_test()
     #sortby_numeric_innerkey_text_with_offset_test()
     #sortby_text_innerkey_numeric_test()
-    sortby_text_innerkey_numeric_with_offset_test()
+    ##sortby_text_innerkey_numeric_with_offset_test()
     #ft_aggreagate_with_sortby_and_innerkey_variation_test()
     #add_data_only()
     print("Perf Test ends")
@@ -112,7 +112,7 @@ def ft_info_test():
 
 
 def sortby_text_innerkey_text_test():
-    producer = connect_redis_with_start()
+    producer = connect_redis()
     time.sleep(5)
     flush_db(producer)
     time.sleep(5)

@@ -493,6 +493,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
     std::unordered_map<std::string, IP_Address_Port> replication_nodes_search;
     while(true) {
+        d_h.search_handler_running = true;
         auto latency_metric_total_handler_start = Get_Start_Time();
         auto latency_metric_total_handler_start_epoch = Get_Epoch_Time();
         // Before search loop starts modify the query updates (unregister , unsubscribe and scroll)
@@ -534,7 +535,8 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
         d_h.unsub_wait_list.clear();
 
         // Process Scrolls
-        for (auto &scroll_triplet : d_h.scroll_wait_list) {
+        for (auto &scroll_triplet_k_v : d_h.scroll_wait_list) {
+            auto scroll_triplet = scroll_triplet_k_v.second;
             long long int query_id = std::get<0>(scroll_triplet);
             long long int offset = std::get<1>(scroll_triplet);
             long long int limit = std::get<2>(scroll_triplet);
@@ -554,7 +556,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                             std::string arguments_string = Vector_2_String(query_vec);
                             d_h.id_2_query[query_id] = arguments_string; // Update global 
                         } else {
-                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: ." + std::to_string(query_id) );
+                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Scroll_RedisCommand skipped for id: " + std::to_string(query_id) );
                             break;
                         }
                         break;
@@ -567,7 +569,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
 
-        Get_Replication_Nodes(ctx,replication_nodes_search);
+        //Get_Replication_Nodes(ctx,replication_nodes_search);
 
         for (auto &client_2_query_item : d_h.client_2_query) {
             std::string current_client = client_2_query_item.first;
@@ -704,6 +706,19 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
         if(handler_frequency_delta > SEARCH_HANDLER_MIN_FREQUENCY) {
             handler_frequency = handler_frequency_delta;
         }
+
+        d_h.search_handler_running = false;
+        //Handle buffered data
+        for(auto const &k_v : d_h.scroll_wait_list_buffer) {
+            long long query_id = k_v.first;
+            d_h.query_2_value[query_id] = d_h.query_2_value_buffer[query_id];
+            d_h.query_2_index[query_id] = d_h.query_2_index_buffer[query_id];
+            d_h.scroll_wait_list[query_id] = d_h.scroll_wait_list_buffer[query_id];
+        }
+        d_h.query_2_value_buffer.clear();
+        d_h.query_2_index_buffer.clear();
+        d_h.scroll_wait_list_buffer.clear();
+        
         std::this_thread::sleep_for(std::chrono::milliseconds(handler_frequency));
     }
 }

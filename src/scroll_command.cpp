@@ -200,12 +200,16 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         RedisModule_ReplyWithEmptyArray(ctx);
     }
 
-    // Update Globals for keys and value
-    d_h.query_2_value[query_id] = key_value_map;
-    d_h.query_2_index[query_id] = keys;
-
-    // Push the scroll (we do it in main loop thread to not cause sync problem)
-    d_h.scroll_wait_list.push_back(std::make_tuple(query_id, offset, limit));
+    // Update globals if handler is not running
+    if(d_h.search_handler_running == false) {
+        d_h.query_2_value[query_id] = key_value_map;
+        d_h.query_2_index[query_id] = keys;
+        d_h.scroll_wait_list[query_id] = std::make_tuple(query_id, offset, limit);
+    } else {
+        d_h.query_2_value_buffer[query_id] = key_value_map;
+        d_h.query_2_index_buffer[query_id] = keys;
+        d_h.scroll_wait_list_buffer[query_id] = std::make_tuple(query_id, offset, limit);     
+    }
     
 
     return REDISMODULE_OK;
