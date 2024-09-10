@@ -130,8 +130,8 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     }
     
     Data_Handler &d_h = Data_Handler::getInstance();
-    d_h.master_node = IP_Address_Port(DEFAULT_MASTER_IP, DEFAULT_MASTER_PORT);
-    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Master Node is detected as : " + DEFAULT_MASTER_IP + ":" + std::to_string(DEFAULT_MASTER_PORT));
+    d_h.master_node = IP_Address_Port(DEFAULT_MASTER_IP, port);
+    LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Master Node is detected as : " + DEFAULT_MASTER_IP + ":" + std::to_string(port));
     
     return REDISMODULE_OK;
 }

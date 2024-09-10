@@ -569,7 +569,7 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
 
-        //Get_Replication_Nodes(ctx,replication_nodes_search);
+        Get_Replication_Nodes(ctx,replication_nodes_search);
 
         for (auto &client_2_query_item : d_h.client_2_query) {
             std::string current_client = client_2_query_item.first;

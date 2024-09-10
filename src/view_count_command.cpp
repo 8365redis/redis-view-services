@@ -127,7 +127,7 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
 
-        //Get_Replication_Nodes(ctx,replication_nodes_count);
+        Get_Replication_Nodes(ctx,replication_nodes_count);
 
         for(auto &clients_info : d_h.client_size_info){
             for (auto& key2info : clients_info.second){
