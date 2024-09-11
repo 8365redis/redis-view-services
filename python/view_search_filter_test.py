@@ -87,4 +87,45 @@ def test_view_search_with_exists_filter():
     dictionary = json.loads(response[5][7][3])
     dictionary.get("field_d") == None
 
+def test_view_search_with_exists_filter_with_limit():
+    producer = connect_redis_with_start()
+    flush_db(producer) # clean all db first
 
+    schema = (NumericField("$.field_a", as_name="field_a", sortable=True), TagField("$.field_b", as_name="field_b", sortable=True),  \
+              TagField("$.field_c", as_name="field_c", sortable=True), TagField("$.field_d", as_name="field_d", sortable=True) )
+    producer.ft(TEST_INDEX_NAME).create_index(schema, definition=IndexDefinition(prefix=[cct_prepare.TEST_INDEX_PREFIX], index_type=IndexType.JSON))
+
+    # ADD INITIAL DATA
+    for i in range(6):
+        d = {}
+        d["field_a"] = (i + 1) + 1000
+        d["field_b"] = str(2000 + i -1)
+        d["field_c"] = "passport"
+        if(i % 2):
+            d["field_d"] = "i_exist_in_odd"
+        key = cct_prepare.TEST_INDEX_PREFIX + str(i)
+        producer.json().set(key, Path.root_path(), d)
+    
+    # FIRST CLIENT
+    client1 = connect_redis()
+    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
+
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 field_a LIMIT 0 6")
+    print("WITHOUT FILTER")
+    print(response)
+
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 field_a FILTER exists(@field_d) LIMIT 0 6")
+    print("WITH FILTER EXISTS LIMIT 0 6")
+    print(response)
+
+    response = client1.execute_command("FT.AGGREGATE " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 2 @field_a ASC FILTER exists(@field_d) LIMIT 0 6")
+    print("FT.AGGREGATE WITH FILTER EXISTS LIMIT 0 6")
+    print(response)
+
+    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 1 field_a FILTER exists(@field_d) LIMIT 0 2")
+    print("WITH FILTER EXISTS LIMIT 0 2")
+    print(response)
+
+    response = client1.execute_command("FT.AGGREGATE " + cct_prepare.TEST_INDEX_NAME + " * SORTBY 2 @field_a ASC FILTER exists(@field_d) LIMIT 0 2")
+    print("FT.AGGREGATE WITH FILTER EXISTS LIMIT 0 2")
+    print(response)
