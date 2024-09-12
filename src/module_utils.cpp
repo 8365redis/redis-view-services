@@ -76,3 +76,32 @@ void Print_Response(redisReply *reply) {
         printf("%s\n", reply->str);
     }
 }
+
+void  Get_Keys_From_Array(RedisModuleCtx *ctx, RedisModuleCallReply *array , std::vector<std::string> &keys, std::string kn , std::string inner_key_arg_prefix) {
+    size_t array_length = RedisModule_CallReplyLength(array);
+    for (size_t i = 0; i < array_length; i++) { 
+        RedisModuleCallReply *key_name = RedisModule_CallReplyArrayElement(array, i);
+        if ( RedisModule_CallReplyType(key_name) != REDISMODULE_REPLY_STRING ) {
+            continue;
+        }
+        RedisModuleString *key_name_rstr = RedisModule_CreateStringFromCallReply(key_name);
+        std::string key_name_str = RedisModule_StringPtrLen(key_name_rstr, NULL);
+        //printf("Key name : %s \n", key_name_str.c_str());
+        if(key_name_str == kn && (i+1) < array_length){
+            RedisModuleCallReply *key_value = RedisModule_CallReplyArrayElement(array, i + 1);
+            if ( RedisModule_CallReplyType(key_value) != REDISMODULE_REPLY_STRING ) {
+                continue;
+            }
+            RedisModuleString *key_value_rstr = RedisModule_CreateStringFromCallReply(key_value);
+            std::string key_value_str = RedisModule_StringPtrLen(key_value_rstr, NULL);
+            //printf("Key value : %s \n", key_value_str.c_str());
+            keys.push_back((inner_key_arg_prefix + key_value_str));
+        }
+    }
+}
+
+void Remove_Outer_Paranthesis(std::string &input) {
+    if (input.size() > 0 && input[0] == '[' && input[input.size() - 1] == ']') {
+        input = input.substr(1, input.size() - 2);
+    }    
+}

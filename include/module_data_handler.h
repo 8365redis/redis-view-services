@@ -77,6 +77,7 @@ public:
     std::unordered_map<long long int, std::tuple<long long int, long long int, long long int>> scroll_wait_list;
     std::unordered_map<long long int, std::tuple<long long int, long long int, long long int>> scroll_wait_list_buffer;
     std::unordered_map<long long int, std::string> id_2_innerkey_prefix; // Query ID : innerkey prefix if given
+    std::unordered_map<long long int, std::string> id_2_innerkey; // Query ID : innerkey if given
 
     IP_Address_Port master_node;
     std::atomic<bool> search_handler_running; 

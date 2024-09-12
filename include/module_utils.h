@@ -11,5 +11,7 @@ std::string Get_Client_Name_From_ID(RedisModuleCtx *ctx, unsigned long long clie
 void Print_Status(RedisModuleCtx *ctx, std::string optional = "");
 std::string Vector_2_String(std::vector<std::string> vec);
 void Print_Response(redisReply *reply);
+void Get_Keys_From_Array(RedisModuleCtx *ctx, RedisModuleCallReply *array , std::vector<std::string> &keys, std::string kn , std::string inner_key_arg_prefix);
+void Remove_Outer_Paranthesis(std::string &input);
 
 #endif /* MODULE_UTILS_H */

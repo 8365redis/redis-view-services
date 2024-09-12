@@ -75,7 +75,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
     std::string all_arg_str;
     bool current_query_inner_key_given = true;
     for(std::string arg : query_vec){
-        if(arg == "@__key"){
+        if(arg == IMPLICIT_KEY_NAME){
             current_query_inner_key_given = false;
         }
         all_arg_str = all_arg_str +  arg + " ";
@@ -104,24 +104,19 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
         return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
     
-    std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[query_id];
-    const int default_key_index = 1;
+    std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[query_id]; // if not exists returns empty so it works no need to check if it exists
+    std::string inner_key_arg = d_h.id_2_innerkey[query_id]; // if not exists returns empty so it works no need to check if it exists
+
     // First get keys
     std::vector<std::string> keys;
     for (size_t i = 1; i < aggreate_reply_length; i++) {   // Starting from 1 as first one count
         RedisModuleCallReply *key_reply = RedisModule_CallReplyArrayElement(reply, i);
         if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
-            size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
-            RedisModuleCallReply *inner_key_reply;
             if(current_query_inner_key_given){
-                inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, inner_reply_length-1); // if innerkey is given it is always last
+                Get_Keys_From_Array(ctx, key_reply, keys, inner_key_arg, inner_key_arg_prefix);
             } else {
-                inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, default_key_index);
+                Get_Keys_From_Array(ctx, key_reply, keys, IMPLICIT_KEY_NAME_SIMPLE, inner_key_arg_prefix);
             }
-            RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
-            const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(arr_elem_key_name_str) );
-            keys.push_back(inner_key_arg_prefix + arr_elem_key_name_str);
         }
     }
 
@@ -171,9 +166,7 @@ int Scroll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
                 continue;
             }
             std::string value = get_reply_elem_str;
-            if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
-                value = value.substr(1, value.size() - 2);
-            }
+            Remove_Outer_Paranthesis(value);
             key_value_map[keys[i]] = json::parse(value);
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand key: " + std::string(keys[i]) + " value: " + value );
         }

@@ -88,4 +88,7 @@ const std::string COUNT_QUERY_STR = "count_query";
 const std::string COUNT_STR = "count";
 const std::string COUNT_QUERY_ID_STR = "count_query_id";
 
+const std::string IMPLICIT_KEY_NAME = "@__key";
+const std::string IMPLICIT_KEY_NAME_SIMPLE = "__key";
+
 #endif /* MODULE_CONSTANTS_H */

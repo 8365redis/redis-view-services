@@ -274,7 +274,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     
 
     if(inner_key_arg_found && !inner_key_exist ){
-        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand Given INNERKEY is not found in index , fallback to __key." );
+        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand Given INNERKEY is not found in index , abort request." );
         return RedisModule_ReplyWithError(ctx, "Given INNERKEY not found in index");
     }
 
@@ -294,7 +294,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
                     arguments_string_converted_vector.push_back("@" + inner_key_arg);
                     arguments_string_converted_vector.push_back("ASC");    
                 } else {
-                    arguments_string_converted_vector.push_back("@__key");
+                    arguments_string_converted_vector.push_back(IMPLICIT_KEY_NAME);
                     arguments_string_converted_vector.push_back("ASC");                         
                 }
             }
@@ -305,7 +305,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
             if(!inner_key_arg_found){
                 arguments_string_converted_vector.push_back("LOAD");
                 arguments_string_converted_vector.push_back("1");
-                arguments_string_converted_vector.push_back("@__key");
+                arguments_string_converted_vector.push_back(IMPLICIT_KEY_NAME);
             }
             arguments_string_converted_vector.push_back(arguments_string_vector[i]);
             if(i + 1 < arguments_string_vector.size()) {
@@ -313,7 +313,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
                     sortby_arg_count = std::stoi( arguments_string_vector[i+1] );
                 } catch (...) {
                     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "View_Search_RedisCommand failed to get sortby argument count." );
-                    return RedisModule_ReplyWithError(ctx, strerror(errno));                       
+                    return RedisModule_ReplyWithError(ctx, "Sortby argument count is wrong");                       
                 }
                 arguments_string_converted_vector.push_back(std::to_string(( sortby_arg_count + 2 )));
                 i++;
@@ -341,7 +341,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     RedisModuleCallReply *aggregate_reply = RedisModule_Call(ctx, "FT.AGGREGATE", "v", new_argv, new_argc);
     if (RedisModule_CallReplyType(aggregate_reply) != REDISMODULE_REPLY_ARRAY) {
         RedisModule_Free(new_argv);
-        return RedisModule_ReplyWithError(ctx, strerror(errno));
+        return RedisModule_ReplyWithError(ctx, "Inner FT.AGGREGATE call has failed");
     }
     
     LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand forwarded request is succesfull." );
@@ -359,23 +359,16 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
         return RedisModule_ReplyWithError(ctx, strerror(errno));   
     }
 
-    const int default_key_index = 1; // If innerkey is not given '__key' is always first key value
     // First get keys
     std::vector<std::string> keys;
     for (size_t i = 1; i < aggreate_reply_length; i++) {   // Starting from 1 as first one count
         RedisModuleCallReply *key_reply = RedisModule_CallReplyArrayElement(aggregate_reply, i);
         if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
-            size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
-            RedisModuleCallReply *inner_key_reply;
             if(inner_key_arg_found){
-                inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, inner_reply_length-1); // if innerkey is given it is always last
+                Get_Keys_From_Array(ctx, key_reply, keys, inner_key_arg, inner_key_arg_prefix);
             } else {
-                inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, default_key_index);
+                Get_Keys_From_Array(ctx, key_reply, keys, IMPLICIT_KEY_NAME_SIMPLE, inner_key_arg_prefix);
             }
-            RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
-            const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-            LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand pushing key: " + std::string(inner_key_arg_prefix + arr_elem_key_name_str) );
-            keys.push_back((inner_key_arg_prefix + arr_elem_key_name_str));
         }
     }
 
@@ -430,9 +423,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
                 continue;
             }
             std::string value = get_reply_elem_str;
-            if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
-                value = value.substr(1, value.size() - 2);
-            }
+            Remove_Outer_Paranthesis(value);
             key_value_map[keys[i]] = json::parse(value);
             LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_RedisCommand key: " + std::string(keys[i]) + " value: " + value );
         }
@@ -474,6 +465,7 @@ int View_Search_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     d_h.query_2_value[LAST_VIEW_SEARCH_IDENTIFIER] = key_value_map;
     d_h.query_2_index[LAST_VIEW_SEARCH_IDENTIFIER] = keys;
     d_h.id_2_innerkey_prefix[LAST_VIEW_SEARCH_IDENTIFIER] = inner_key_arg_prefix;
+    d_h.id_2_innerkey[LAST_VIEW_SEARCH_IDENTIFIER] = inner_key_arg;
 
     LAST_VIEW_SEARCH_IDENTIFIER++;
 
@@ -580,9 +572,10 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                 bool current_query_inner_key_given = true;
                 long long int current_query_id = id_to_query_item.first;
                 std::string inner_key_arg_prefix = d_h.id_2_innerkey_prefix[current_query_id]; // if not exists returns empty so it works no need to check if it exists
+                std::string inner_key_arg = d_h.id_2_innerkey[current_query_id]; // if not exists returns empty so it works no need to check if it exists
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : id_to_query_item.second){
-                    if(arg == "@__key"){
+                    if(arg == IMPLICIT_KEY_NAME){
                         current_query_inner_key_given = false;
                     }
                     arguments.push_back(RedisModule_CreateString(ctx, arg.c_str(), arg.length()));
@@ -604,63 +597,57 @@ void View_Search_Handler(RedisModuleCtx *ctx) {
                     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler FT.AGGREGATE failed." );
                     continue;
                 }
-                const int default_key_index = 1;
+
                 // First get keys
                 const size_t aggreate_reply_length = RedisModule_CallReplyLength(reply);
                 std::vector<std::string> view_new_keys;
                 for (size_t i = 1; i < aggreate_reply_length; i++) {   // Starting from 1 as first one count
                     RedisModuleCallReply *key_reply = RedisModule_CallReplyArrayElement(reply, i);
                     if ( RedisModule_CallReplyType(key_reply) == REDISMODULE_REPLY_ARRAY) {
-                        size_t inner_reply_length = RedisModule_CallReplyLength(key_reply);
-                        RedisModuleCallReply *inner_key_reply;
                         if(current_query_inner_key_given){
-                            inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, inner_reply_length-1); // if innerkey is given it is always last
+                            Get_Keys_From_Array(ctx, key_reply, view_new_keys, inner_key_arg, inner_key_arg_prefix);
                         } else {
-                            inner_key_reply = RedisModule_CallReplyArrayElement(key_reply, default_key_index);
+                            Get_Keys_From_Array(ctx, key_reply, view_new_keys, IMPLICIT_KEY_NAME_SIMPLE, inner_key_arg_prefix);
                         }
-                        RedisModuleString *arr_elem_key_name = RedisModule_CreateStringFromCallReply(inner_key_reply);
-                        const char *arr_elem_key_name_str = RedisModule_StringPtrLen(arr_elem_key_name, NULL);
-                        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler pushing key: " + std::string(inner_key_arg_prefix + arr_elem_key_name_str) );
-                        view_new_keys.push_back(inner_key_arg_prefix + arr_elem_key_name_str);
                     }
                 }
 
-                //Now get values
-                int get_argc = view_new_keys.size();
-                RedisModuleString **get_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * get_argc);
-                for (int i = 0; i < get_argc; ++i) {
-                    get_argv[i] = RedisModule_CreateString(ctx, view_new_keys[i].c_str(), view_new_keys[i].size());
-                }
-
-                RedisModuleCallReply *get_reply = RedisModule_Call(ctx, "JSON.MGET", "vc", get_argv , get_argc, "$");
-                if (RedisModule_CallReplyType(get_reply) != REDISMODULE_REPLY_ARRAY) {
-                    RedisModule_Free(get_argv);
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR]  View_Search_Handler JSON.MGET returned not an array." );
-                    continue;
-                }
-                RedisModule_Free(get_argv);
-
-                // Parse get values
                 std::unordered_map<std::string, nlohmann::json> new_values;
-                const size_t get_reply_length = RedisModule_CallReplyLength(get_reply);
-                if(get_reply_length != view_new_keys.size()) {
-                    LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
-                    continue;
-                }
-                for (size_t i = 0; i < get_reply_length; i++) {  
-                    RedisModuleCallReply *get_inner_reply = RedisModule_CallReplyArrayElement(get_reply, i);
-                    RedisModuleString *get_reply_elem = RedisModule_CreateStringFromCallReply(get_inner_reply);
-                    const char *get_reply_elem_str = RedisModule_StringPtrLen(get_reply_elem, NULL);
-                    if (!json::accept(get_reply_elem_str)){
-                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler JSON.MGET returned an element which is not valid json" );
+                if(view_new_keys.size() != 0) { 
+                    //Now get values
+                    int get_argc = view_new_keys.size();
+                    RedisModuleString **get_argv = (RedisModuleString **)RedisModule_Alloc(sizeof(RedisModuleString *) * get_argc);
+                    for (int i = 0; i < get_argc; ++i) {
+                        get_argv[i] = RedisModule_CreateString(ctx, view_new_keys[i].c_str(), view_new_keys[i].size());
+                    }
+
+                    RedisModuleCallReply *get_reply = RedisModule_Call(ctx, "JSON.MGET", "vc", get_argv , get_argc, "$");
+                    if (RedisModule_CallReplyType(get_reply) != REDISMODULE_REPLY_ARRAY) {
+                        RedisModule_Free(get_argv);
+                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR]  View_Search_Handler JSON.MGET returned not an array." );
                         continue;
                     }
-                    std::string value = get_reply_elem_str;
-                    if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
-                        value = value.substr(1, value.size() - 2);
+                    RedisModule_Free(get_argv);
+
+                    // Parse get values
+                    const size_t get_reply_length = RedisModule_CallReplyLength(get_reply);
+                    if(get_reply_length != view_new_keys.size()) {
+                        LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler JSON.MGET returned array size is not right. Reply : " +  std::to_string(get_reply_length)  );
+                        continue;
                     }
-                    new_values[view_new_keys[i]] = json::parse(value);
-                    //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler key: " + std::string(view_new_keys[i]) + " value: " + value );
+                    for (size_t i = 0; i < get_reply_length; i++) {  
+                        RedisModuleCallReply *get_inner_reply = RedisModule_CallReplyArrayElement(get_reply, i);
+                        RedisModuleString *get_reply_elem = RedisModule_CreateStringFromCallReply(get_inner_reply);
+                        const char *get_reply_elem_str = RedisModule_StringPtrLen(get_reply_elem, NULL);
+                        if (!json::accept(get_reply_elem_str)){
+                            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "[ERROR] View_Search_Handler JSON.MGET returned an element which is not valid json" );
+                            continue;
+                        }
+                        std::string value = get_reply_elem_str;
+                        Remove_Outer_Paranthesis(value);
+                        new_values[view_new_keys[i]] = json::parse(value);
+                        //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "View_Search_Handler key: " + std::string(view_new_keys[i]) + " value: " + value );
+                    }
                 }
 
                 json diff_values_json_array = json::array();
@@ -839,9 +826,7 @@ void Handler_Forward_Request(RedisModuleCtx *ctx, IP_Address_Port node, std::str
            continue;
         }
         std::string value = get_reply->element[i]->str;
-        if (value.size() > 0 && value[0] == '[' && value[value.size() - 1] == ']') {
-            value = value.substr(1, value.size() - 2);
-        }
+        Remove_Outer_Paranthesis(value);
         new_values[view_new_keys[i]] = json::parse(value);
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handler_Forward_Request key: " + std::string(view_new_keys[i]) + " value: " + value );       
     }

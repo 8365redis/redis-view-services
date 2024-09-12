@@ -32,10 +32,15 @@ def test_no_inner_key():
     client1.execute_command("VIEW.REGISTER app1")
 
     response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3")
-    print("\nVIEW.SEARCH RESPONSE : " + str(response))
+    #print("\nVIEW.SEARCH RESPONSE : " + str(response))
     query_id = int(response[1])
     assert query_id == 1
-    time.sleep(2)
+
+    assert response[5][1]== 'test_data:1'
+    assert response[5][5]== 'test_data:10'
+    assert response[5][9]== 'test_data:11'
+
+    
 
 def test_no_inner_key_with_scroll():
     producer = connect_redis_with_start()
@@ -52,20 +57,25 @@ def test_no_inner_key_with_scroll():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER app1")
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3")
-    print("\nVIEW.SEARCH RESPONSE : " + str(response))
-    query_id = int(response[1])
-    assert query_id == 1
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3")
+    #print("\nVIEW.SEARCH RESPONSE : " + str(response))
+    assert response[5][1]== 'test_data:1'
+    assert response[5][5]== 'test_data:10'
+    assert response[5][9]== 'test_data:11'
 
     response = client1.execute_command(f"VIEW.SEARCH.SCROLL 1 3 3")
-    print("\nVIEW.SEARCH.SCROLL RESPONSE : " + str(response))
+    #print("\nVIEW.SEARCH.SCROLL RESPONSE : " + str(response))
+    assert response[5][1]== 'test_data:12'
+    assert response[5][5]== 'test_data:13'
+    assert response[5][9]== 'test_data:14'
 
-    #response = client1.execute_command(f"VIEW.SEARCH.SCROLL 1 6 3")
-    #print("\VIEW.SEARCH.SCROLL RESPONSE : " + str(response))
     time.sleep(2)
 
     response = client1.execute_command(f"VIEW.SEARCH.SCROLL 1 6 3")
-    print("\nVIEW.SEARCH.SCROLL RESPONSE : " + str(response))
+    #print("\nVIEW.SEARCH.SCROLL RESPONSE : " + str(response))
+    assert response[5][1]== 'test_data:15'
+    assert response[5][5]== 'test_data:16'
+    assert response[5][9]== 'test_data:17'
 
 def test_no_inner_key_with_scroll_with_different_data_type():
     producer = connect_redis_with_start()
@@ -121,14 +131,22 @@ def test_with_inner_key():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER app1")
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3 INNERKEY User.Address.ID")
-    print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3 INNERKEY User.Address.ID")
+    #print("\nVIEW.SEARCH RESPONSE 1: " + str(response))
     query_id = int(response[1])
     assert query_id == 1
+    assert response[5][1]== 'test_data:1'
+    assert response[5][5]== 'test_data:10'
+    assert response[5][9]== 'test_data:11'
     time.sleep(2)
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 3 5 INNERKEY User.Address.ID")
-    print("\nVIEW.SEARCH RESPONSE 2: " + str(response))
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 3 5 INNERKEY User.Address.ID")
+    #print("\nVIEW.SEARCH RESPONSE 2: " + str(response))
+    assert response[5][1]== 'test_data:12'
+    assert response[5][5]== 'test_data:13'
+    assert response[5][9]== 'test_data:14'
+    assert response[5][13]== 'test_data:15'
+    assert response[5][17]== 'test_data:16'
 
 def test_wrong_inner_key():
     producer = connect_redis_with_start()
@@ -145,21 +163,21 @@ def test_wrong_inner_key():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER app1")
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3 INNERKEY not.valid.inner.key")
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3 INNERKEY not.valid.inner.key")
     print("\nNOT VALID INNERKEY : " + str(response))
     query_id = int(response[1])
     assert query_id == 1
 
     time.sleep(2)
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nDEFAULT                : " + str(response))
     query_id = int(response[1])
     assert query_id == 2
 
     time.sleep(1)
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 5 5")
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 5 5")
     print("\nDEFAULT                : " + str(response))
 
 def test_sortby_and_inner_key_same():
