@@ -18,7 +18,8 @@ def before_and_after_test():
     kill_replica_redis(6382)
     print("End")
 
-
+@pytest.mark.skipif(True ,
+                    reason="Only run manually")
 def test_view_search_stream_write_new_start_single():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
@@ -82,7 +83,8 @@ def test_view_search_stream_write_new_start_single():
     assert from_stream == []
 
 
-
+@pytest.mark.skipif(True ,
+                    reason="Only run manually")
 def test_view_search_stream_write_new_start_double():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first

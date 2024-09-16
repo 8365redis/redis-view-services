@@ -29,13 +29,13 @@ def test_named_return_basic():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER app1")
     
-    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{aaa} SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{aaa} SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
-    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{bbb} SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{bbb} SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
 
@@ -54,20 +54,20 @@ def test_named_return_scroll():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER app1")
     
-    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{aaa} SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{aaa} SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(1) + " 3 3")
     print("\nVIEW.SEARCH.SCROLL RESPONSE : " +str(response))
 
 
-    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index * SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(2) + " 3 3")
     print("\nVIEW.SEARCH.SCROLL RESPONSE : " +str(response))
 
-    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{bbb} SORTBY User.ID DESC LIMIT 0 3")
+    response = client1.execute_command("VIEW.SEARCH test_index  @User\\.PASSPORT:{bbb} SORTBY 2 User.ID DESC LIMIT 0 3")
     print("\nVIEW.SEARCH RESPONSE : " + str(response))
 
     response = client1.execute_command("VIEW.SEARCH.SCROLL " + str(3) + " 3 3")

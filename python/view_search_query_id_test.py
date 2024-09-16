@@ -29,38 +29,38 @@ def test_view_query_id():
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
     print(str(result))
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
     result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
     result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
     # SECOND CLIENT
     client2 = connect_redis()
     client2.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_2)
     result = client2.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
     result = client2.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
     # FIRST CLIENT AGAIN
     result = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
     # THIRD CLIENT
     client3 = connect_redis()
     client3.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_3)
     result = client3.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "}" + cct_prepare.QUERY_FULL_POSTFIX)
-    assert id ==  result[0]
+    assert id ==  result[1]
     id = id + 1
 
 

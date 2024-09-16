@@ -22,8 +22,9 @@ def kill_replica_redis(port):
     time.sleep(1)
 
 def start_redis():
-    #current_working_directory = os.getcwd()
+    current_working_directory = os.getcwd()
     #module = current_working_directory  + "/bin/cct-view.so"
+    #print(module)
     #bashCommand = "redis-stack-server --loadmodule " + module
     bashCommand = "redis-stack-server"
     subprocess.Popen(bashCommand.split(), 

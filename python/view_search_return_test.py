@@ -295,32 +295,32 @@ def test_view_search_return_multi_with_wrong_sortby():
     try:
         response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID_SORTBY LIMIT 0 10 DIALECT 4" )
     except Exception as e :
-        print(e)
+        #print(e)
         assert str(e) == "Sortby argument count is wrong"
     assert response == ""
 
     try:
         response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY INVALID_SORTBY LIMIT 0 10" )
     except Exception as e :
-        print(e)
+        #print(e)
         assert str(e) == "Sortby argument count is wrong"
     assert response == ""
 
     try:
         response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY 1 INVALID_SORTBY LIMIT 0 10 DIALECT 4" )
     except Exception as e :
-        print(e)
+        #print(e)
         assert str(e) == "Inner FT.AGGREGATE call has failed"
     assert response == ""
 
     try:
         response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "} SORTBY 1 INVALID_SORTBY LIMIT 0 10" )
     except Exception as e :
-        print(e)
+        #print(e)
         assert str(e) == "Inner FT.AGGREGATE call has failed"
     assert response == ""
 
-def test_view_search_is_same_with_ft_search_dialect_1():
+def test_view_search_is_same_with_ft_aggr_with_text_sortby_field():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
@@ -334,16 +334,19 @@ def test_view_search_is_same_with_ft_search_dialect_1():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    view_search_response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.Address.ID DESC LIMIT 0 3")
-    print("VIEW:" + str(view_search_response))
-    ft_search_response = client1.execute_command("FT.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.Address.ID DESC LIMIT 0 3 ")
-    print("FT:" + str(ft_search_response))
-    del view_search_response[0]
+    view_search_response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY 2 User.Address.ID DESC LIMIT 0 3")
+    #print("VIEW:" + str(view_search_response))
+    ft_aggr_response = client1.execute_command("FT.AGGREGATE " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} LOAD 1 @__key SORTBY 4 @User.Address.ID DESC @__key ASC LIMIT 0 3 ")
+    #print("FT:" + str(ft_aggr_response))
 
-    assert view_search_response == ft_search_response
+    assert view_search_response[5][1] == ft_aggr_response[1][1]
+    assert view_search_response[5][5] == ft_aggr_response[2][1]
+    assert view_search_response[5][9] == ft_aggr_response[3][1]
+    
 
 
-def test_view_search_is_same_with_ft_search_dialect_4():
+
+def test_view_search_is_same_with_ft_aggr_with_num_sortby_field():
     producer = connect_redis_with_start()
     flush_db(producer) # clean all db first
     cct_prepare.create_index(producer)
@@ -357,36 +360,14 @@ def test_view_search_is_same_with_ft_search_dialect_4():
     # FIRST CLIENT
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    view_search_response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3")
-    print("VIEW:" + str(view_search_response))
-    ft_search_response = client1.execute_command("FT.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3 ")
-    print("FT:" + str(ft_search_response))
-    del view_search_response[0]
+    view_search_response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY 2 User.ID DESC LIMIT 0 3")
+    #print("VIEW:" + str(view_search_response))
+    ft_aggr_response = client1.execute_command("FT.AGGREGATE " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} LOAD 1 @__key SORTBY 4 @User.ID DESC @__key ASC LIMIT 0 3 ")
+    #print("FT:" + str(ft_aggr_response))
 
-    assert view_search_response == ft_search_response
-
-
-def test_view_search_is_similar_with_ft_search_dialect_4():
-    producer = connect_redis_with_start()
-    flush_db(producer) # clean all db first
-    cct_prepare.create_index(producer)
-
-    # ADD INITIAL DATA
-    for i in range(3):
-        d = cct_prepare.generate_single_object(1000 + i , 2000-i, "aaa")
-        key = cct_prepare.TEST_INDEX_PREFIX + str(1 + i)
-        producer.json().set(key, Path.root_path(), d)
-
-    # FIRST CLIENT
-    client1 = connect_redis()
-    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    view_search_response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3")
-    print("VIEW:" + str(view_search_response))
-    ft_search_response = client1.execute_command("FT.SEARCH " + cct_prepare.TEST_INDEX_NAME + " @User\\.PASSPORT:{" + "aaa" + "} SORTBY User.ID DESC LIMIT 0 3 DIALECT 4")
-    print("FT:" + str(ft_search_response))
-    del view_search_response[0]
-
-    #assert view_search_response == ft_search_response
+    assert view_search_response[5][1] == ft_aggr_response[1][1]
+    assert view_search_response[5][5] == ft_aggr_response[2][1]
+    assert view_search_response[5][9] == ft_aggr_response[3][1]
     
 
 def test_view_search_without_innerkey():
@@ -404,26 +385,33 @@ def test_view_search_without_innerkey():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "aaa" + "}" + " SORTBY 1 User.ID LIMIT 0 2")
-    print("\nVIEW.SEARCH (aaa) result : " + str(response))
+    #print("\nVIEW.SEARCH (aaa) result : " + str(response))
+    assert response[1] == 1
+    assert response[3] == 10
+    assert str(response[5]) == '''['key', 'test_data:1', 'value', ['path', '$', 'data', '{"User":{"Address":{"ID":"2000"},"ID":1000,"PASSPORT":"aaa"}}'], 'key', 'test_data:10', 'value', ['path', '$', 'data', '{"User":{"Address":{"ID":"2009"},"ID":1000,"PASSPORT":"aaa"}}']]'''
 
     time.sleep(1.1)
 
     # CHECK STREAM
     from_stream = client1.xread(streams={cct_prepare.TEST_APP_NAME_1:1} )
-    print("\nSTREAM AFTER SCROLL : " +str(from_stream))
-    assert  str(from_stream) == "[]"
+    #print("\nSTREAM AFTER SEARCH : " +str(from_stream))
+    assert from_stream == []
 
 
     # SECOND QUERY
-    client1 = connect_redis()
-    client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
-    response = client1.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "bbb" + "}" + " SORTBY 1 User.ID LIMIT 0 2")
-    print("\nVIEW.SEARCH (bbb) result : " + str(response))
+    client2 = connect_redis()
+    client2.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_2)
+    response = client2.execute_command("VIEW.SEARCH " + cct_prepare.TEST_INDEX_NAME +  " @User\\.PASSPORT:{" + "bbb" + "}" + " SORTBY 1 User.ID LIMIT 0 2")
+    #print("\nVIEW.SEARCH (bbb) result : " + str(response))
+    assert response[1] == 2
+    assert response[3] == 0
+    assert response[5] == []
+
 
     time.sleep(1.1)
 
     # CHECK STREAM
-    from_stream = client1.xread(streams={cct_prepare.TEST_APP_NAME_1:1} )
-    print("\nSTREAM AFTER SCROLL : " +str(from_stream))
-    assert  str(from_stream) == "[]"
+    from_stream = client2.xread(streams={cct_prepare.TEST_APP_NAME_2:1} )
+    #print("\nSTREAM AFTER SEARCH : " +str(from_stream))
+    assert from_stream == []
 

@@ -28,17 +28,22 @@ def test_single_client_single_count_after_unreg():
     client1 = connect_redis()
     client1.execute_command("VIEW.REGISTER " + cct_prepare.TEST_APP_NAME_1)
     result = client1.execute_command("VIEW.COUNT " + cct_prepare.TEST_INDEX_NAME +  " * ")
-    print("VIEW.COUNT response : " + str(result))
+    #print("VIEW.COUNT response : " + str(result))
     assert query_id ==  result[1]
+    assert 1 ==  result[5]
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    print("FIRST STREAM : " + str(from_stream))
+    #print("FIRST STREAM : " + str(from_stream))
+    assert from_stream == []
+
     #TRIM STREAM
     client1.xtrim(cct_prepare.TEST_APP_NAME_1 , 0)
+
     #CHECK STREAM AFTER TRIM 
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    print("AFTER TRIM STREAM : " +  str(from_stream))
+    #print("AFTER TRIM STREAM : " +  str(from_stream))
+    assert from_stream == []
 
     #UPDATE DATA 
     d = cct_prepare.generate_single_object(1001  , 2001, "bbb")
@@ -49,7 +54,9 @@ def test_single_client_single_count_after_unreg():
 
     # CHECK STREAM
     from_stream = client1.xread( streams={cct_prepare.TEST_APP_NAME_1:0} )
-    print("AFTER APPEND STREAM : " + str(from_stream))
+    #print("AFTER APPEND STREAM : " + str(from_stream))
+    #print("AFTER APPEND STREAM : " + str(from_stream[0][1]))
+    assert str(from_stream[0][1][0][1]) == '''{'count_query_id': '1', 'count_query': 'test_index *', 'count': '2'}'''
 
     # FIRST CLIENT UNREGISTER
     response = client1.execute_command("VIEW.UNREGISTER " + cct_prepare.TEST_APP_NAME_1)
