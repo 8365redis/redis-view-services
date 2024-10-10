@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include "redis/redismodule.h"
-#include "module_data_handler.h"
 
 bool Add_Metric(RedisModuleCtx *ctx, unsigned long long metric_ts, std::string name, double value, std::string value_type, std::string module, std::string version, std::string command, const std::map<std::string, std::string>& tags);
 bool Add_Replication_Metric(RedisModuleCtx *ctx, unsigned long long metric_ts, std::string name, double value, std::string value_type, std::string module, std::string version, std::string command, const std::map<std::string, std::string>& tags);

@@ -6,7 +6,7 @@
 #include "module_constants.h"
 #include "module_monitoring.h"
 #include "module_config.h"
-#include "version.h"
+#include "module_data_handler.h"
 #include "logger.h"
 
 using json = nlohmann::json;
@@ -17,7 +17,7 @@ bool Add_Metric(RedisModuleCtx *ctx, unsigned long long metric_ts, std::string n
         return true;
     } 
     
-    if(ctx == nullptr || ctx == NULL) {
+    if(ctx == nullptr) {
         LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Add_Metric failed , context is invalid.");
         return false;
     }
