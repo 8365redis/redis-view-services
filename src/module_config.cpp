@@ -43,16 +43,15 @@ void Module_Config::Read_Module_Config(RedisModuleCtx *ctx, std::string config_f
             LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_ENABLED_CONFIG] is not found in config file using default.");
         }
 
-        if( !config[DEFAULT_CONFIG_SECTION][MONITORING_RETENTION_CONFIG].empty() ) {
+        if( !config[DEFAULT_CONFIG_SECTION][MONITORING_STREAM_CAP_CONFIG].empty() ) {
             try{
-                int monitoring_retention_hours = std::stoi(config[DEFAULT_CONFIG_SECTION][MONITORING_RETENTION_CONFIG]);
-                monitoring_retention = monitoring_retention_hours * 60 * 60 * 1000;
+                monitoring_stream_cap = std::stoi(config[DEFAULT_CONFIG_SECTION][MONITORING_STREAM_CAP_CONFIG]);
             } catch (std::invalid_argument const& ex) {
-                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value " + MONITORING_RETENTION_CONFIG  + " has failed to read value.");
+                LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value " + MONITORING_STREAM_CAP_CONFIG  + " has failed to read value.");
             }
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_RETENTION_CONFIG] : " + std::to_string(monitoring_retention));
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_STREAM_CAP_CONFIG] : " + std::to_string(monitoring_stream_cap));
         } else {
-            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_RETENTION_CONFIG] is not found in config file using default.");
+            LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Module config value [MONITORING_STREAM_CAP_CONFIG] is not found in config file using default.");
         }
 
 

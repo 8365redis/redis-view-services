@@ -9,6 +9,8 @@
 #include "module_constants.h"
 #include "module_monitoring.h"
 #include "replication_node_tracker.h"
+#include "module_config.h"
+#include "version.h"
 
 static unsigned long LAST_VIEW_COUNT_IDENTIFIER = 1;
 
@@ -58,8 +60,11 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
     RedisModule_ReplyWithCString(ctx, COUNT_QUERY_ID_STR.c_str());
     RedisModule_ReplyWithLongLong(ctx, LAST_VIEW_COUNT_IDENTIFIER);
 
-    // Reply Add the query 
-    std::string index_and_query = arguments_arg[0] + " " + arguments_arg[1]; 
+    // Reply Add the query
+    std::string index = arguments_arg[0];
+    std::string query = arguments_arg[1];
+    std::string index_and_query = index + CCT_MODULE_QUERY_DELIMETER + query;
+    
     RedisModule_ReplyWithCString(ctx, COUNT_QUERY_STR.c_str());
     RedisModule_ReplyWithCString(ctx, index_and_query.c_str());
 
@@ -74,10 +79,17 @@ int Search_Count_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int
 
     LAST_VIEW_COUNT_IDENTIFIER++;
 
+    std::string arguments_str = Vector_2_String(arguments_arg);
+    std::string query_with_command = LATENCY_TYPE_VIEW_COUNT + CCT_MODULE_QUERY_DELIMETER + arguments_str;
     std::string client_name_str = Get_Client_Name(ctx);
     auto latency_metric = Get_Delta_Time(latency_metric_start);
-    Add_Metric(ctx, latency_metric_start_epoch, (VIEW_COUNT_LATENCY_METRIC_STREAM_PREFIX + client_name_str + MONITORING_TS_DELIMETER + index_and_query), std::to_string(latency_metric), Create_Latency_Labels(client_name_str,LATENCY_TYPE_VIEW_COUNT));
-    Add_Count_Metric(ctx, (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + client_name_str), Create_Count_Labels(client_name_str, COUNT_TYPE_VIEW_COUNT));
+
+    std::map<std::string, std::string> tags = {
+        {CLIENT_KEY, client_name_str},
+        {INDEX_NAME_KEY, index},
+        {COMMAND_TYPE_KEY, LATENCY_TYPE_VIEW_COUNT}
+    };
+    Add_Metric(ctx, latency_metric_start_epoch, METRIC_NAME_LATENCY, latency_metric, METRIC_VALUE_TYPE_NS, MODULE_NAME, VersionManager::Get_Module_Version_Str(), query_with_command, tags);
     return REDISMODULE_OK;
 }
 
@@ -90,6 +102,7 @@ void Start_Search_Count_Handler(RedisModuleCtx *ctx) {
 
 void Search_Count_Handler(RedisModuleCtx *ctx) {
     Data_Handler &d_h = Data_Handler::getInstance();
+    Module_Config &module_config = Module_Config::getInstance();
     std::unordered_map<std::string, IP_Address_Port> replication_nodes_count;
     while(true) {
         auto latency_metric_total_handler_start = Get_Start_Time();
@@ -100,7 +113,6 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                 LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_Handler Unreg for count not found for client : " + unreg_count_client);
                 continue;
             } else {
-                Reset_Count(ctx, VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX + unreg_count_client); 
                 d_h.client_size_info.erase(unreg_count_client);
             }
         }
@@ -114,7 +126,6 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
             } else {
                 for (auto it = d_h.client_size_info[unsub_count_info.stream_name].begin(); it != d_h.client_size_info[unsub_count_info.stream_name].end(); ) {
                     if ( (*it).first == unsub_count_info.id) {
-                        Add_Count_Metric(ctx , (VIEW_COUNT_COUNT_METRIC_STREAM_PREFIX+unsub_count_info.stream_name), Create_Count_Labels(unsub_count_info.stream_name, COUNT_TYPE_VIEW_COUNT), false); // Decrease its count
                         it = d_h.client_size_info[unsub_count_info.stream_name].erase(it); // erase returns the next iterator
                     } else {
                         ++it; // only increment if not erased
@@ -126,6 +137,11 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
 
         //LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Search_Count_Handler called." );
         RedisModule_ThreadSafeContextLock(ctx);
+
+        //TRIM MONITORING
+        RedisModuleString* mon_stream_name = RedisModule_CreateString(ctx, OPENTRACING_STREAM_NAME.c_str(), OPENTRACING_STREAM_NAME.length());
+        RedisModuleKey *mon_stream_key = RedisModule_OpenKey(ctx, mon_stream_name, REDISMODULE_WRITE);
+        RedisModule_StreamTrimByLength(mon_stream_key, REDISMODULE_STREAM_TRIM_APPROX, module_config.Get_Monitoring_Stream_Cap());
 
         Get_Replication_Nodes(ctx,replication_nodes_count);
 
@@ -140,7 +156,9 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "Search_Count_Handler client size info argument size less than 2.");
                     continue;
                 }
-                std::string index_and_query = info.arguments[0] + " " + info.arguments[1];
+                std::string index = info.arguments[0];
+                std::string query = info.arguments[1];
+                std::string index_and_query = index + CCT_MODULE_QUERY_DELIMETER + query;
 
                 std::vector<RedisModuleString*> arguments;
                 for(std::string arg : info.arguments){
@@ -193,13 +211,20 @@ void Search_Count_Handler(RedisModuleCtx *ctx) {
                     }
                 }
                 info.count = current_count;
+                std::string query_with_command = LATENCY_TYPE_VIEW_COUNT_HANDLER + CCT_MODULE_QUERY_DELIMETER + Vector_2_String(info.arguments);
                 auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
-                Add_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_COUNT_HANDLER_LATENCY_METRIC_STREAM_PREFIX + info.stream_name + MONITORING_TS_DELIMETER + index_and_query), 
-                                std::to_string(latency_metric_current_query), Create_Latency_Labels(info.stream_name,LATENCY_TYPE_VIEW_COUNT_HANDLER));
+                std::map<std::string, std::string> tags = {
+                    {CLIENT_KEY, info.stream_name},
+                    {INDEX_NAME_KEY, index},
+                    {COMMAND_TYPE_KEY, LATENCY_TYPE_VIEW_COUNT_HANDLER}
+                };
+                Add_Metric(ctx, latency_metric_current_query_start_epoch, METRIC_NAME_LATENCY, latency_metric_current_query, METRIC_VALUE_TYPE_NS, MODULE_NAME, VersionManager::Get_Module_Version_Str(), query_with_command, tags);
             }
         }
         auto latency_metric_total_handler = Get_Delta_Time(latency_metric_total_handler_start);
-        Add_Metric(ctx, latency_metric_total_handler_start_epoch, (VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX), std::to_string(latency_metric_total_handler), Create_Handler_Latency_Label()); 
+        std::map<std::string, std::string> tags = {};
+        Add_Metric(ctx, latency_metric_total_handler_start_epoch, VIEW_COUNT_HANDLER_TOTAL_LATENCY_METRIC_STREAM_PREFIX, latency_metric_total_handler, METRIC_VALUE_TYPE_NS, MODULE_NAME, VersionManager::Get_Module_Version_Str(), "", tags);
+
 
         RedisModule_ThreadSafeContextUnlock(ctx);
         
@@ -273,14 +298,20 @@ void Handler_Forward_Request(RedisModuleCtx *ctx, IP_Address_Port node, Client_S
     freeReplyObject(search_reply);
     redisFree(hiredis_replica_context);
 
-    std::string index_and_query = info.arguments[0] + " " + info.arguments[1];
+    std::string index = info.arguments[0];
+    std::string query = info.arguments[1];
+    std::string index_and_query = index + " " + query;
 
     if(info.count == count) {
         LOG(ctx, REDISMODULE_LOGLEVEL_DEBUG , "Handler_Forward_Request (Count) got same count ignore:" + count_str );
         auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
-        Add_Replication_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_COUNT_HANDLER_REPLICA_LATENCY_METRIC_STREAM_PREFIX + node.get_key() + 
-                    MONITORING_TS_DELIMETER + info.stream_name + MONITORING_TS_DELIMETER + index_and_query),
-                    std::to_string(latency_metric_current_query), Create_Replica_Latency_Labels(info.stream_name, LATENCY_TYPE_VIEW_COUNT_HANDLER, node.get_key()));
+        std::map<std::string, std::string> tags = {
+            {CLIENT_KEY, info.stream_name},
+            {INDEX_NAME_KEY, index},
+            {COMMAND_TYPE_KEY, LATENCY_TYPE_VIEW_COUNT_HANDLER},
+            {REPLICA_KEY, node.get_key()}
+        };
+        Add_Replication_Metric(ctx, latency_metric_current_query_start_epoch, METRIC_NAME_LATENCY, latency_metric_current_query, METRIC_VALUE_TYPE_NS, MODULE_NAME, VersionManager::Get_Module_Version_Str(), command, tags);
         return;
     }
     info.count = count;
@@ -310,8 +341,12 @@ void Handler_Forward_Request(RedisModuleCtx *ctx, IP_Address_Port node, Client_S
     }
 
     auto latency_metric_current_query = Get_Delta_Time(latency_metric_current_query_start);
-    Add_Replication_Metric(ctx, latency_metric_current_query_start_epoch, (VIEW_COUNT_HANDLER_REPLICA_LATENCY_METRIC_STREAM_PREFIX + node.get_key() + 
-                MONITORING_TS_DELIMETER + info.stream_name + MONITORING_TS_DELIMETER + index_and_query),
-                std::to_string(latency_metric_current_query), Create_Replica_Latency_Labels(info.stream_name, LATENCY_TYPE_VIEW_COUNT_HANDLER, node.get_key()));
+    std::map<std::string, std::string> tags = {
+        {CLIENT_KEY, info.stream_name},
+        {INDEX_NAME_KEY, index},
+        {COMMAND_TYPE_KEY, LATENCY_TYPE_VIEW_COUNT_HANDLER},
+        {REPLICA_KEY, node.get_key()}
+    };
+    Add_Replication_Metric(ctx, latency_metric_current_query_start_epoch, METRIC_NAME_LATENCY, latency_metric_current_query, METRIC_VALUE_TYPE_NS, MODULE_NAME, VersionManager::Get_Module_Version_Str(), command, tags);
 
 }

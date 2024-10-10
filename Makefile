@@ -39,7 +39,7 @@ clean:
 
 # fix this one to change load module
 load: 
-	redis-stack-server
+	redis-stack-server --loadmodule $(CURRENTDIR)/$(BINDIR)/cct-view.so
 
 test:
 	pytest -rP

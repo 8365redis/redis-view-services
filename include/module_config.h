@@ -4,13 +4,13 @@
 #include <string>
 #include "redis/redismodule.h"
 
-const unsigned long DEFAULT_RETENTION = 1000 * 60 * 60 * 24 * 7; // Default retention 7 days
+const unsigned long DEFAULT_MONITORING_STREAM_CAP = 1000000; // Default cap 1M
 
 const std::string DEFAULT_CONFIG_FILE_NAME  = "view-server-config.ini";
 const std::string DEFAULT_CONFIG_SECTION  = "view-server";
 
 const std::string MONITORING_ENABLED_CONFIG  = "MONITORING_ENABLED";
-const std::string MONITORING_RETENTION_CONFIG = "MONITORING_RETENTION_HOURS";
+const std::string MONITORING_STREAM_CAP_CONFIG = "MONITORING_STREAM_CAP";
 
 class Module_Config {
 public:
@@ -21,12 +21,12 @@ public:
 private:
     Module_Config() {}
     bool monitoring_enabled = true;
-    unsigned long long monitoring_retention = DEFAULT_RETENTION;
+    unsigned long long monitoring_stream_cap = DEFAULT_MONITORING_STREAM_CAP;
 public:
     Module_Config(Module_Config const&) = delete;
     void operator=(Module_Config const&) = delete;
     void Read_Module_Config(RedisModuleCtx *ctx, std::string config_file_path_str);
     bool Get_Monitoring() const { return monitoring_enabled; }
-    unsigned long long Get_Monitoring_Retention() const { return monitoring_retention; }
+    unsigned long long Get_Monitoring_Stream_Cap() const { return monitoring_stream_cap; }
 };
 #endif /* MODULE_CONFIG_H */

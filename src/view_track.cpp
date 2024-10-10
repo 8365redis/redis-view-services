@@ -35,7 +35,7 @@ extern "C" {
 static RedisModuleCtx *rdts_staticCtx;
 
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
-    int version_int = Get_Module_Version(VIEW_MODULE_VERSION);
+    VersionManager::Set_Module_Version(VIEW_MODULE_VERSION);
     const char* version_string = { VIEW_MODULE_VERSION " compiled at " __TIME__ " "  __DATE__  };
     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "VIEW_MODULE_VERSION : " + std::string(version_string));
 
@@ -46,7 +46,7 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     LOG(ctx, REDISMODULE_LOGLEVEL_WARNING , "THIS IS A RELEASE BUILD." );
     #endif 
 
-    if (RedisModule_Init(ctx, "VIEW.SEARCH", version_int, REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
+    if (RedisModule_Init(ctx, MODULE_NAME.c_str(), VersionManager::Get_Module_Version(), REDISMODULE_APIVER_1) == REDISMODULE_ERR) {
         return REDISMODULE_ERR;
     }
 
